@@ -58,10 +58,13 @@ These environment variables control runtime behavior:
 | --- | --- | --- |
 | `PORT` | HTTP port for the app server | `5670` |
 | `ALLOW_INSECURE_HTTP` | Allow HTTP for localhost-only dev | `false` |
+| `TRUST_PROXY` | Trust `X-Forwarded-*` headers from a reverse proxy | `false` |
+| `MAX_PARTICIPANTS` | Maximum participants in the room | `10` |
+| `WS_MAX_PAYLOAD` | Max WebSocket message size in bytes | `1048576` |
 
 ## HTTPS-Only Transport
 
-Roomtone requires HTTPS for non-localhost traffic (the server checks `X-Forwarded-Proto` and refuses plain HTTP). Run it behind an HTTPS proxy or load balancer.
+Roomtone requires HTTPS for non-localhost traffic. Run it behind an HTTPS proxy or load balancer and set `TRUST_PROXY=true` so `X-Forwarded-Proto` can be trusted. Direct HTTP requests are rejected.
 
 ## No STUN/TURN
 

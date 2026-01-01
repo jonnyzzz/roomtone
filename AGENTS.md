@@ -29,7 +29,9 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 ## Deployment Notes
 
 - HTTP listens on `PORT` (default 5670).
-- HTTPS is required for non-localhost traffic; terminate TLS in front of the service.
+- HTTPS is required for non-localhost traffic; terminate TLS in front of the service and set `TRUST_PROXY=true`.
+- `MAX_PARTICIPANTS` caps the room size (default 10).
+- `WS_MAX_PAYLOAD` limits WebSocket message size in bytes.
 
 ## Implementation Conventions
 
