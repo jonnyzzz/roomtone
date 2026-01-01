@@ -9,43 +9,42 @@ import { RoomState, Participant } from "./room";
 
 const port = Number(process.env.PORT ?? "5670");
 const allowInsecure = process.env.ALLOW_INSECURE_HTTP === "true";
+const trustProxy = process.env.TRUST_PROXY === "true";
+const maxParticipantsRaw = Number(process.env.MAX_PARTICIPANTS ?? "10");
+const maxParticipants =
+  Number.isFinite(maxParticipantsRaw) && maxParticipantsRaw > 0
+    ? maxParticipantsRaw
+    : 10;
+const maxPayloadRaw = Number(process.env.WS_MAX_PAYLOAD ?? "1048576");
+const maxPayloadBytes =
+  Number.isFinite(maxPayloadRaw) && maxPayloadRaw > 0
+    ? maxPayloadRaw
+    : 1048576;
 const app = express();
-app.set("trust proxy", true);
+app.set("trust proxy", trustProxy);
 
-function hostFromHeaders(headers: IncomingHttpHeaders): string | undefined {
-  const value =
-    (headers["x-forwarded-host"] as string | string[] | undefined) ??
-    headers.host;
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) {
-    return undefined;
+function isLoopbackAddress(address?: string): boolean {
+  if (!address) {
+    return false;
   }
-
-  const first = raw.split(",")[0]?.trim();
-  if (!first) {
-    return undefined;
-  }
-
-  if (first.startsWith("[")) {
-    const end = first.indexOf("]");
-    if (end > 1) {
-      return first.slice(1, end);
-    }
-  }
-
-  return first.split(":")[0];
-}
-
-function isLoopbackHost(host?: string): boolean {
-  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  return (
+    address === "127.0.0.1" ||
+    address === "::1" ||
+    address === "::ffff:127.0.0.1"
+  );
 }
 
 function isSecureRequest(
   headers: IncomingHttpHeaders,
-  encrypted?: boolean
+  encrypted: boolean | undefined,
+  allowForwarded: boolean
 ): boolean {
   if (encrypted) {
     return true;
+  }
+
+  if (!allowForwarded) {
+    return false;
   }
 
   const protoHeader = headers["x-forwarded-proto"];
@@ -58,11 +57,15 @@ function isSecureRequest(
 }
 
 app.use((req, res, next) => {
-  const host = hostFromHeaders(req.headers);
+  const isLoopback = isLoopbackAddress(req.socket.remoteAddress);
   if (
     allowInsecure ||
-    isLoopbackHost(host) ||
-    isSecureRequest(req.headers, (req.socket as { encrypted?: boolean }).encrypted)
+    isLoopback ||
+    isSecureRequest(
+      req.headers,
+      (req.socket as { encrypted?: boolean }).encrypted,
+      trustProxy
+    )
   ) {
     next();
     return;
@@ -89,7 +92,11 @@ if (fs.existsSync(clientDist)) {
 }
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: "/ws" });
+const wss = new WebSocketServer({
+  server,
+  path: "/ws",
+  maxPayload: maxPayloadBytes
+});
 const room = new RoomState();
 const clientsById = new Map<string, WebSocket>();
 const clientsBySocket = new Map<WebSocket, Participant>();
@@ -121,11 +128,15 @@ function handleLeave(ws: WebSocket) {
 }
 
 wss.on("connection", (ws, req) => {
-  const host = hostFromHeaders(req.headers);
+  const isLoopback = isLoopbackAddress(req.socket.remoteAddress);
   if (
     !allowInsecure &&
-    !isLoopbackHost(host) &&
-    !isSecureRequest(req.headers, (req.socket as { encrypted?: boolean }).encrypted)
+    !isLoopback &&
+    !isSecureRequest(
+      req.headers,
+      (req.socket as { encrypted?: boolean }).encrypted,
+      trustProxy
+    )
   ) {
     ws.close(1008, "HTTPS is required.");
     return;
@@ -148,6 +159,12 @@ wss.on("connection", (ws, req) => {
       const name = rawName.slice(0, 40);
       if (!name) {
         send(ws, { type: "error", message: "Name is required." });
+        return;
+      }
+
+      if (room.count() >= maxParticipants) {
+        send(ws, { type: "error", message: "Room is full." });
+        ws.close(1008, "Room is full.");
         return;
       }
 
@@ -176,6 +193,7 @@ wss.on("connection", (ws, req) => {
       const data = message.data ?? {};
       const target = clientsById.get(targetId);
       if (!target) {
+        send(ws, { type: "error", message: "Peer is no longer available." });
         return;
       }
 

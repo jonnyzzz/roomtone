@@ -164,7 +164,6 @@ export default function App() {
       pc.onconnectionstatechange = () => {
         if (
           pc.connectionState === "failed" ||
-          pc.connectionState === "disconnected" ||
           pc.connectionState === "closed"
         ) {
           peerConnectionsRef.current.delete(peerId);
@@ -185,41 +184,49 @@ export default function App() {
   const handleSignal = useCallback(
     async (from: string, data: SignalPayload) => {
       const pc = ensurePeerConnection(from);
-      if (data.description) {
-        const description = new RTCSessionDescription(data.description);
-        await pc.setRemoteDescription(description);
-        if (description.type === "offer") {
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          if (pc.localDescription) {
-            sendSignal(from, { description: pc.localDescription });
+      try {
+        if (data.description) {
+          const description = new RTCSessionDescription(data.description);
+          await pc.setRemoteDescription(description);
+          if (description.type === "offer") {
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            if (pc.localDescription) {
+              sendSignal(from, { description: pc.localDescription });
+            }
+          }
+          return;
+        }
+
+        if (data.candidate) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+          } catch {
+            // Ignore candidates from already closed peers.
           }
         }
-        return;
-      }
-
-      if (data.candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch {
-          // Ignore candidates from already closed peers.
-        }
+      } catch {
+        setError("Signaling error.");
       }
     },
-    [ensurePeerConnection, sendSignal]
+    [ensurePeerConnection, sendSignal, setError]
   );
 
   const handlePeerJoined = useCallback(
     async (peer: Participant) => {
-      setParticipants((prev) => [...prev, peer]);
-      const pc = ensurePeerConnection(peer.id);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      if (pc.localDescription) {
-        sendSignal(peer.id, { description: pc.localDescription });
+      try {
+        setParticipants((prev) => [...prev, peer]);
+        const pc = ensurePeerConnection(peer.id);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        if (pc.localDescription) {
+          sendSignal(peer.id, { description: pc.localDescription });
+        }
+      } catch {
+        setError("Unable to connect to a peer.");
       }
     },
-    [ensurePeerConnection, sendSignal]
+    [ensurePeerConnection, sendSignal, setError]
   );
 
   const handlePeerLeft = useCallback((peerId: string) => {
@@ -293,7 +300,13 @@ export default function App() {
       };
 
       ws.onmessage = (event) => {
-        const message = JSON.parse(event.data) as ServerMessage;
+        let message: ServerMessage;
+        try {
+          message = JSON.parse(event.data) as ServerMessage;
+        } catch {
+          setError("Bad message from server.");
+          return;
+        }
         if (message.type === "welcome") {
           myIdRef.current = message.id;
           setParticipants(message.participants);
@@ -303,7 +316,7 @@ export default function App() {
         }
 
         if (message.type === "peer-joined") {
-          handlePeerJoined(message.peer);
+          void handlePeerJoined(message.peer);
           return;
         }
 
@@ -313,7 +326,7 @@ export default function App() {
         }
 
         if (message.type === "signal") {
-          handleSignal(message.from, message.data);
+          void handleSignal(message.from, message.data);
           return;
         }
 
