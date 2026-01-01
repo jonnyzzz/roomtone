@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    image: roomtone:latest
+    ports:
+      - "5670:5670"
+    environment:
+      PORT: 5670
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      MAX_PARTICIPANTS: ${MAX_PARTICIPANTS:-10}
+      WS_MAX_PAYLOAD: ${WS_MAX_PAYLOAD:-1048576}
+    volumes:
+      - ${STEVEDORE_DATA:-./.stevedore/data}:/var/lib/roomtone
+      - ${STEVEDORE_LOGS:-./.stevedore/logs}:/var/log/roomtone
+      - ${STEVEDORE_SHARED:-./.stevedore/shared}:/opt/roomtone/shared
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5670/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
