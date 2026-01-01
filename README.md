@@ -30,6 +30,36 @@ docker compose up --build
 http://localhost:5670
 ```
 
+## Deploy with Stevedore
+
+Roomtone ships a `docker-compose.yaml` that is ready for [Stevedore](https://github.com/jonnyzzz/stevedore).
+
+```bash
+stevedore repo add roomtone git@github.com:jonnyzzz/roomtone.git --branch main
+stevedore repo key roomtone
+```
+
+Add the printed key to GitHub (read-only):
+
+```bash
+gh api -X POST repos/jonnyzzz/roomtone/keys \
+  -f title="stevedore-roomtone" \
+  -f key="$(stevedore repo key roomtone)" \
+  -F read_only=true
+```
+
+Then deploy:
+
+```bash
+stevedore deploy sync roomtone
+stevedore deploy up roomtone
+stevedore status roomtone
+```
+
+Notes:
+- For HTTPS-only traffic behind a reverse proxy, set `TRUST_PROXY=true` and keep `ALLOW_INSECURE_HTTP=false`.
+- Stevedore injects `STEVEDORE_DATA`, `STEVEDORE_LOGS`, and `STEVEDORE_SHARED` for volumes. Local `docker compose` uses `.stevedore/` fallbacks.
+
 ## Local Development
 
 Install dependencies:

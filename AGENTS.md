@@ -18,7 +18,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - `src/` React client and WebRTC flow.
 - `tests/unit/` Vitest unit tests.
 - `tests/e2e/` Playwright integration tests.
-- `docker-compose.yml` runs the app container only.
+- `docker-compose.yaml` runs the app container and is Stevedore-ready.
 
 ## Runtime Behavior
 
@@ -32,6 +32,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - HTTPS is required for non-localhost traffic; terminate TLS in front of the service and set `TRUST_PROXY=true`.
 - `MAX_PARTICIPANTS` caps the room size (default 10).
 - `WS_MAX_PAYLOAD` limits WebSocket message size in bytes.
+- Stevedore deployments mount `STEVEDORE_DATA`, `STEVEDORE_LOGS`, and `STEVEDORE_SHARED` volumes.
 
 ## Implementation Conventions
 
