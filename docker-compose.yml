@@ -5,34 +5,4 @@ services:
       - "5670:5670"
     environment:
       PORT: 5670
-      PUBLIC_HOST: ${PUBLIC_HOST:-}
-      TURN_HOST: ${TURN_HOST:-}
-      TURN_USERNAME: ${TURN_USERNAME:-telephony}
-      TURN_PASSWORD: ${TURN_PASSWORD:-telephony}
-      TURN_PORT: ${TURN_PORT:-3478}
-      TURN_TLS_PORT: ${TURN_TLS_PORT:-5349}
-    depends_on:
-      - coturn
-
-  coturn:
-    image: coturn/coturn:4.6.2
-    restart: unless-stopped
-    ports:
-      - "3478:3478/tcp"
-      - "3478:3478/udp"
-      - "5349:5349/tcp"
-      - "49160-49200:49160-49200/udp"
-    command:
-      - --log-file=stdout
-      - --no-cli
-      - --fingerprint
-      - --lt-cred-mech
-      - --realm=${TURN_REALM:-roomtone}
-      - --user=${TURN_USERNAME:-telephony}:${TURN_PASSWORD:-telephony}
-      - --listening-port=3478
-      - --tls-listening-port=5349
-      - --min-port=49160
-      - --max-port=49200
-      - --no-tlsv1
-      - --no-tlsv1_1
-      - --listening-ip=0.0.0.0
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-}
