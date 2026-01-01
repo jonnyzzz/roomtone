@@ -210,6 +210,29 @@ body::before {
   color: var(--text-muted);
 }
 
+.notify {
+  margin-top: 18px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(11, 16, 22, 0.6);
+}
+
+.notify strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.notify p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -392,5 +415,10 @@ body::before {
 
   .controls .btn {
     flex: 1 1 120px;
+  }
+
+  .notify {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

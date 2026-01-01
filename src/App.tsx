@@ -10,6 +10,8 @@ type SignalPayload = {
   candidate?: RTCIceCandidateInit;
 };
 
+type NotificationState = NotificationPermission | "unsupported";
+
 type ServerMessage =
   | { type: "welcome"; id: string; participants: Participant[] }
   | { type: "peer-joined"; peer: Participant }
@@ -19,6 +21,36 @@ type ServerMessage =
 
 function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function NotificationPrompt({
+  permission,
+  onRequest
+}: {
+  permission: NotificationState;
+  onRequest: () => void;
+}) {
+  if (permission === "unsupported" || permission === "granted") {
+    return null;
+  }
+
+  return (
+    <div className="notify">
+      <div>
+        <strong>Stay in the loop.</strong>
+        <p>
+          {permission === "denied"
+            ? "Notifications are blocked in your browser settings."
+            : "Enable notifications to hear when someone joins the room."}
+        </p>
+      </div>
+      {permission === "default" ? (
+        <button className="btn btn--ghost" onClick={onRequest}>
+          Enable notifications
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 function VideoTile({
@@ -77,6 +109,8 @@ export default function App() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationState>("default");
 
   const wsRef = useRef<WebSocket | null>(null);
   const manualCloseRef = useRef(false);
@@ -86,6 +120,14 @@ export default function App() {
   const localStreamRef = useRef<MediaStream | null>(null);
 
   const participantCount = joined ? participants.length + 1 : 0;
+
+  useEffect(() => {
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    setNotificationPermission(Notification.permission);
+  }, []);
 
   const clearConnections = useCallback(() => {
     for (const pc of peerConnectionsRef.current.values()) {
@@ -124,6 +166,48 @@ export default function App() {
         data
       })
     );
+  }, []);
+
+  const requestNotifications = useCallback(async () => {
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    if (
+      window.location.protocol !== "https:" &&
+      !isLocalhost(window.location.hostname)
+    ) {
+      setError("Notifications require HTTPS.");
+      return;
+    }
+
+    try {
+      const result = await Notification.requestPermission();
+      setNotificationPermission(result);
+      if (result === "denied") {
+        setError("Notifications are blocked in your browser settings.");
+      }
+    } catch {
+      setError("Unable to enable notifications.");
+    }
+  }, []);
+
+  const notifyPeerJoined = useCallback((peer: Participant) => {
+    if (!("Notification" in window)) {
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      return;
+    }
+    try {
+      new Notification("Roomtone", {
+        body: `${peer.name} joined the room.`,
+        tag: `peer-${peer.id}`
+      });
+    } catch {
+      // Ignore notification failures.
+    }
   }, []);
 
   const ensurePeerConnection = useCallback(
@@ -216,6 +300,7 @@ export default function App() {
     async (peer: Participant) => {
       try {
         setParticipants((prev) => [...prev, peer]);
+        notifyPeerJoined(peer);
         const pc = ensurePeerConnection(peer.id);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -226,7 +311,7 @@ export default function App() {
         setError("Unable to connect to a peer.");
       }
     },
-    [ensurePeerConnection, sendSignal, setError]
+    [ensurePeerConnection, notifyPeerJoined, sendSignal, setError]
   );
 
   const handlePeerLeft = useCallback((peerId: string) => {
@@ -453,6 +538,10 @@ export default function App() {
             >
               {status === "connecting" ? "Joining..." : "Join room"}
             </button>
+            <NotificationPrompt
+              permission={notificationPermission}
+              onRequest={requestNotifications}
+            />
             <div className="join__hint">
               For best results, allow camera and microphone when prompted.
             </div>
@@ -480,6 +569,10 @@ export default function App() {
               </button>
             </div>
           </div>
+          <NotificationPrompt
+            permission={notificationPermission}
+            onRequest={requestNotifications}
+          />
           <div className="video-grid">
             <VideoTile
               stream={localStream ?? undefined}
