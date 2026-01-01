@@ -92,6 +92,7 @@ npm run test
 Run Playwright integration tests (builds first):
 
 ```bash
+npx playwright install
 npm run test:e2e
 ```
 
