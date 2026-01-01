@@ -1,13 +1,13 @@
 # Roomtone
 
-Roomtone is a single-room audio and video calling app built on WebRTC and WebSocket signaling. It runs behind plain HTTP (HTTPS handled externally), works on mobile and desktop, and ships with a TURN server for NAT traversal.
+Roomtone is a single-room audio and video calling app built on WebRTC and WebSocket signaling. It runs behind external HTTPS termination, works on mobile and desktop, and keeps signaling traffic on secure connections only.
 
 ## Highlights
 
 - One shared room for all participants.
 - WebRTC audio and video with WebSocket signaling.
 - Clean, mobile-friendly UI in React + TypeScript.
-- Docker-first deployment with an embedded TURN server.
+- Docker-first deployment with a single container.
 - Built-in integration tests (Playwright) and unit tests (Vitest).
 
 ## Quickstart (Docker)
@@ -57,25 +57,15 @@ These environment variables control runtime behavior:
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `PORT` | HTTP port for the app server | `5670` |
-| `PUBLIC_HOST` | Public hostname when behind a reverse proxy | empty |
-| `TURN_HOST` | Hostname for TURN relay (defaults to `PUBLIC_HOST`) | empty |
-| `TURN_USERNAME` | TURN auth username | `telephony` |
-| `TURN_PASSWORD` | TURN auth password | `telephony` |
-| `TURN_PORT` | TURN UDP/TCP port | `3478` |
-| `TURN_TLS_PORT` | TURN TLS port | `5349` |
-| `ICE_SERVERS_JSON` | Override ICE server list as JSON | empty |
+| `ALLOW_INSECURE_HTTP` | Allow HTTP for localhost-only dev | `false` |
 
-If `ICE_SERVERS_JSON` is set, it overrides TURN config entirely.
+## HTTPS-Only Transport
 
-## TURN / NAT Traversal
+Roomtone requires HTTPS for non-localhost traffic (the server checks `X-Forwarded-Proto` and refuses plain HTTP). Run it behind an HTTPS proxy or load balancer.
 
-The included `coturn` container listens on:
+## No STUN/TURN
 
-- `3478/tcp` and `3478/udp` for TURN.
-- `5349/tcp` for TURN over TLS.
-- `49160-49200/udp` for relayed media.
-
-Make sure these ports are open on your firewall when hosting on the public internet. If your TURN server sits behind NAT, add the `--external-ip` flag to the `coturn` command in `docker-compose.yml`.
+This build uses host ICE candidates only. That keeps signaling on HTTPS/WSS but may reduce connectivity on strict NATs. If you need global NAT traversal later, reintroduce TURN support.
 
 ## Architecture
 

@@ -6,7 +6,6 @@ Roomtone is a single-room mesh call. Each browser connects to the signaling serv
 
 - Browser UI (React + TypeScript)
 - Signaling server (Node.js + Express + ws)
-- TURN relay (coturn) for NAT traversal
 
 ## Data Flow
 
@@ -23,7 +22,7 @@ Roomtone is a single-room mesh call. Each browser connects to the signaling serv
                 +---------------+
 ```
 
-When TURN is enabled, media can relay through coturn instead of going direct.
+Media flows directly between peers using host candidates only.
 
 ## Signaling Messages
 

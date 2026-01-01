@@ -18,20 +18,18 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - `src/` React client and WebRTC flow.
 - `tests/unit/` Vitest unit tests.
 - `tests/e2e/` Playwright integration tests.
-- `docker-compose.yml` includes the app and a coturn relay.
+- `docker-compose.yml` runs the app container only.
 
 ## Runtime Behavior
 
 - One shared room for all participants.
 - WebSocket signaling at `/ws`.
-- Client fetches ICE config from `/config`.
-- TURN settings are read from environment variables and default to the included coturn container.
+- Client uses host ICE candidates only (no STUN/TURN).
 
 ## Deployment Notes
 
 - HTTP listens on `PORT` (default 5670).
-- HTTPS is expected to terminate in front of this service.
-- TURN uses UDP 3478 and the relay range 49160-49200.
+- HTTPS is required for non-localhost traffic; terminate TLS in front of the service.
 
 ## Implementation Conventions
 
