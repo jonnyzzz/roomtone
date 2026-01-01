@@ -1,26 +1,77 @@
 import express from "express";
 import http from "http";
+import type { IncomingHttpHeaders } from "http";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { RoomState, Participant } from "./room";
-import { buildIceServers } from "./config";
 
 const port = Number(process.env.PORT ?? "5670");
+const allowInsecure = process.env.ALLOW_INSECURE_HTTP === "true";
 const app = express();
 app.set("trust proxy", true);
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+function hostFromHeaders(headers: IncomingHttpHeaders): string | undefined {
+  const value =
+    (headers["x-forwarded-host"] as string | string[] | undefined) ??
+    headers.host;
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) {
+    return undefined;
+  }
+
+  const first = raw.split(",")[0]?.trim();
+  if (!first) {
+    return undefined;
+  }
+
+  if (first.startsWith("[")) {
+    const end = first.indexOf("]");
+    if (end > 1) {
+      return first.slice(1, end);
+    }
+  }
+
+  return first.split(":")[0];
+}
+
+function isLoopbackHost(host?: string): boolean {
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function isSecureRequest(
+  headers: IncomingHttpHeaders,
+  encrypted?: boolean
+): boolean {
+  if (encrypted) {
+    return true;
+  }
+
+  const protoHeader = headers["x-forwarded-proto"];
+  const raw = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
+  if (!raw) {
+    return false;
+  }
+
+  return raw.split(",")[0]?.trim() === "https";
+}
+
+app.use((req, res, next) => {
+  const host = hostFromHeaders(req.headers);
+  if (
+    allowInsecure ||
+    isLoopbackHost(host) ||
+    isSecureRequest(req.headers, (req.socket as { encrypted?: boolean }).encrypted)
+  ) {
+    next();
+    return;
+  }
+  res.status(400).send("HTTPS is required.");
 });
 
-app.get("/config", (req, res) => {
-  const hostHeader =
-    (req.headers["x-forwarded-host"] as string | undefined) ??
-    req.headers.host;
-  const config = buildIceServers(process.env, hostHeader);
-  res.json(config);
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
 });
 
 const clientDist = path.resolve(__dirname, "..", "client");
@@ -69,7 +120,17 @@ function handleLeave(ws: WebSocket) {
   broadcast({ type: "peer-left", peerId: participant.id });
 }
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
+  const host = hostFromHeaders(req.headers);
+  if (
+    !allowInsecure &&
+    !isLoopbackHost(host) &&
+    !isSecureRequest(req.headers, (req.socket as { encrypted?: boolean }).encrypted)
+  ) {
+    ws.close(1008, "HTTPS is required.");
+    return;
+  }
+
   ws.on("message", (raw) => {
     let message: any;
     try {

@@ -14,9 +14,6 @@ export default defineConfig({
       "/ws": {
         target: "ws://localhost:5670",
         ws: true
-      },
-      "/config": {
-        target: "http://localhost:5670"
       }
     }
   }

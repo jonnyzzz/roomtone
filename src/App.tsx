@@ -17,10 +17,9 @@ type ServerMessage =
   | { type: "signal"; from: string; data: SignalPayload }
   | { type: "error"; message: string };
 
-type ConfigResponse = {
-  iceServers: RTCIceServer[];
-  publicHost?: string;
-};
+function isLocalhost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
 
 function VideoTile({
   stream,
@@ -251,6 +250,14 @@ export default function App() {
       return;
     }
 
+    if (
+      window.location.protocol !== "https:" &&
+      !isLocalhost(window.location.hostname)
+    ) {
+      setError("HTTPS is required to join the room.");
+      return;
+    }
+
     if (status === "connecting") {
       return;
     }
@@ -272,10 +279,6 @@ export default function App() {
 
       localStreamRef.current = stream;
       setLocalStream(stream);
-
-      const configResponse = await fetch("/config");
-      const config = (await configResponse.json()) as ConfigResponse;
-      iceServersRef.current = config.iceServers ?? [];
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
