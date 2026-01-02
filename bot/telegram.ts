@@ -54,12 +54,19 @@ export class TelegramApi {
     return data.result ?? [];
   }
 
-  async sendMessage(chatId: number, text: string): Promise<void> {
+  async sendMessage(
+    chatId: number,
+    text: string,
+    options?: { parseMode?: "HTML" | "MarkdownV2"; disablePreview?: boolean }
+  ): Promise<void> {
     const payload = {
       chat_id: chatId,
       text,
-      disable_web_page_preview: true
+      disable_web_page_preview: options?.disablePreview ?? true
     };
+    if (options?.parseMode) {
+      Object.assign(payload, { parse_mode: options.parseMode });
+    }
     const response = await fetch(this.apiUrl("sendMessage"), {
       method: "POST",
       headers: { "content-type": "application/json" },

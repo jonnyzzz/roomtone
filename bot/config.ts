@@ -8,6 +8,9 @@ export type BotConfig = {
   adminUsers: Set<number>;
   adminUsernames: Set<string>;
   botUsername: string | null;
+  notifyChats: Set<number>;
+  notifyPollSeconds: number;
+  serverBaseUrl: URL;
   command: string;
   publicBaseUrl: URL;
   jwtPrivateKey: string;
@@ -37,6 +40,12 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
   }
 
   const allowedChats = parseOptionalIdList(env.TELEGRAM_ALLOWED_CHATS);
+  const notifyChats = resolveNotifyChats(env, allowedChats);
+  const notifyPollSeconds = parsePositiveInt(
+    env.BOT_NOTIFY_POLL_SECONDS,
+    10,
+    "BOT_NOTIFY_POLL_SECONDS"
+  );
   const botUsername = normalizeUsername(env.TELEGRAM_BOT_USERNAME);
   const commandRaw = env.BOT_COMMAND?.trim() || "/invite";
   const command = (commandRaw.startsWith("/") ? commandRaw : `/${commandRaw}`)
@@ -49,6 +58,9 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
     );
   }
   const publicBaseUrl = new URL(baseUrlRaw);
+  const serverBaseUrlRaw =
+    env.BOT_SERVER_BASE_URL?.trim() || publicBaseUrl.toString();
+  const serverBaseUrl = new URL(serverBaseUrlRaw);
 
   const jwtPrivateKey = loadPrivateKey(env);
   const jwtTtlSeconds = parsePositiveInt(
@@ -69,6 +81,9 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
     adminUsers,
     adminUsernames,
     botUsername,
+    notifyChats,
+    notifyPollSeconds,
+    serverBaseUrl,
     command,
     publicBaseUrl,
     jwtPrivateKey,
@@ -123,6 +138,17 @@ function parseOptionalIdList(raw?: string): Set<number> | null {
   }
   const parsed = parseIdList(raw);
   return parsed.size > 0 ? parsed : null;
+}
+
+function resolveNotifyChats(
+  env: NodeJS.ProcessEnv,
+  allowedChats: Set<number> | null
+): Set<number> {
+  const raw = env.TELEGRAM_NOTIFY_CHATS?.trim();
+  if (raw) {
+    return parseIdList(raw);
+  }
+  return allowedChats ? new Set(allowedChats) : new Set<number>();
 }
 
 function requireValue(value: string | undefined, name: string): string {

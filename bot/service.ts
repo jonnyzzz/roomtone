@@ -1,6 +1,11 @@
 import { AccessStore } from "./access";
 import { BotConfig } from "./config";
-import { buildInvitePayload, signJwt } from "./jwt";
+import {
+  buildAnonymousInvitePayload,
+  buildInvitePayload,
+  buildServicePayload,
+  signJwt
+} from "./jwt";
 import { TelegramApi, TelegramChat, TelegramUpdate, TelegramUser } from "./telegram";
 
 const POLL_TIMEOUT_SECONDS = 30;
@@ -10,6 +15,9 @@ export class ConnectionManagerBot {
   private offset = 0;
   private running = false;
   private access: AccessStore;
+  private knownParticipants = new Map<string, string>();
+  private hasParticipantBaseline = false;
+  private serviceToken: { token: string; exp: number } | null = null;
 
   constructor(
     private readonly config: BotConfig,
@@ -24,6 +32,9 @@ export class ConnectionManagerBot {
       return;
     }
     this.running = true;
+    if (this.config.notifyChats.size > 0) {
+      void this.notifyLoop();
+    }
     while (this.running) {
       try {
         await this.pollOnce();
@@ -48,6 +59,37 @@ export class ConnectionManagerBot {
       await this.handleUpdate(update);
     }
     return updates.length;
+  }
+
+  async checkParticipantsOnce(): Promise<number> {
+    if (this.config.notifyChats.size === 0) {
+      return 0;
+    }
+    const participants = await this.fetchParticipants();
+    const current = new Map<string, string>();
+    participants.forEach((participant) => {
+      current.set(participant.id, participant.name);
+    });
+
+    if (!this.hasParticipantBaseline) {
+      this.hasParticipantBaseline = true;
+      this.knownParticipants = current;
+      return 0;
+    }
+
+    const newcomers: { id: string; name: string }[] = [];
+    for (const participant of participants) {
+      if (!this.knownParticipants.has(participant.id)) {
+        newcomers.push(participant);
+      }
+    }
+    this.knownParticipants = current;
+
+    for (const participant of newcomers) {
+      await this.notifyParticipantJoined(participant.name);
+    }
+
+    return newcomers.length;
   }
 
   private async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -188,6 +230,65 @@ export class ConnectionManagerBot {
       await this.api.sendMessage(chat.id, this.access.summary());
     }
   }
+
+  private async notifyLoop(): Promise<void> {
+    while (this.running) {
+      try {
+        await this.checkParticipantsOnce();
+      } catch (error) {
+        console.error("Telegram notify error:", error);
+      }
+      await delay(this.config.notifyPollSeconds * 1000);
+    }
+  }
+
+  private async fetchParticipants(): Promise<{ id: string; name: string }[]> {
+    const url = new URL("/participants", this.config.serverBaseUrl);
+    const token = this.getServiceToken();
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw new Error(`Participants request failed: ${response.status}`);
+    }
+    const data = (await response.json()) as { id: string; name: string }[];
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return data.filter(
+      (item) => typeof item?.id === "string" && typeof item?.name === "string"
+    );
+  }
+
+  private getServiceToken(): string {
+    const now = Math.floor(Date.now() / 1000);
+    if (this.serviceToken && this.serviceToken.exp - now > 30) {
+      return this.serviceToken.token;
+    }
+    const payload = buildServicePayload(
+      this.config.jwtIssuer,
+      this.config.jwtTtlSeconds
+    );
+    const token = signJwt(payload, this.config.jwtPrivateKey);
+    this.serviceToken = { token, exp: payload.exp };
+    return token;
+  }
+
+  private async notifyParticipantJoined(name: string): Promise<void> {
+    const token = signJwt(
+      buildAnonymousInvitePayload(
+        this.config.jwtIssuer,
+        this.config.jwtTtlSeconds
+      ),
+      this.config.jwtPrivateKey
+    );
+    const inviteUrl = new URL(this.config.publicBaseUrl.toString());
+    inviteUrl.searchParams.set("token", token);
+    const message = buildJoinNotification(name, inviteUrl.toString());
+    for (const chatId of this.config.notifyChats) {
+      await this.api.sendMessage(chatId, message, { parseMode: "HTML" });
+    }
+  }
 }
 
 function parseCommand(
@@ -269,6 +370,24 @@ function buildHelpMessage(config: BotConfig): string {
     "/deny_chat <id> - remove a group chat (admin)",
     "/list_access - show allowlist (admin)"
   ].join("\n");
+}
+
+function buildJoinNotification(name: string, url: string): string {
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(url);
+  return [
+    `New participant: <b>${safeName}</b>`,
+    `Join: <a href="${safeUrl}">Join Roomtone</a>`
+  ].join("\n");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 async function sendWhoAmI(

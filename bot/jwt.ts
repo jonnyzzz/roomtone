@@ -42,6 +42,37 @@ export function buildInvitePayload(
   };
 }
 
+export function buildServicePayload(
+  issuer: string,
+  ttlSeconds: number
+): JwtPayload {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    exp: now + ttlSeconds,
+    iat: now,
+    nbf: now,
+    iss: issuer,
+    sub: "roomtone-telegram-bot",
+    name: "Roomtone Bot",
+    jti: crypto.randomUUID()
+  };
+}
+
+export function buildAnonymousInvitePayload(
+  issuer: string,
+  ttlSeconds: number
+): JwtPayload {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    exp: now + ttlSeconds,
+    iat: now,
+    nbf: now,
+    iss: issuer,
+    sub: "roomtone-invite",
+    jti: crypto.randomUUID()
+  };
+}
+
 function base64UrlEncode(input: Buffer | string): string {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
   return buffer

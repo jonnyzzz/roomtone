@@ -13,6 +13,7 @@ import { verifyJwt } from "../../server/auth";
 type SentMessage = {
   chat_id: number;
   text: string;
+  parse_mode?: string;
 };
 
 describe("Telegram bot integration", () => {
@@ -21,6 +22,8 @@ describe("Telegram bot integration", () => {
   const sentMessages: SentMessage[] = [];
   let updates: TelegramUpdate[] = [];
   let updatesServed = false;
+  let participantSnapshots: { id: string; name: string }[][] = [];
+  let participantIndex = 0;
 
   beforeAll(async () => {
     server = createServer(async (req, res) => {
@@ -40,10 +43,21 @@ describe("Telegram bot integration", () => {
         const payload = body ? JSON.parse(body) : {};
         sentMessages.push({
           chat_id: payload.chat_id,
-          text: payload.text
+          text: payload.text,
+          parse_mode: payload.parse_mode
         });
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true, result: {} }));
+        return;
+      }
+      if (url.includes("/participants")) {
+        const snapshot =
+          participantSnapshots[participantIndex] ??
+          participantSnapshots[participantSnapshots.length - 1] ??
+          [];
+        participantIndex += 1;
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(snapshot));
         return;
       }
       res.writeHead(404);
@@ -236,6 +250,57 @@ describe("Telegram bot integration", () => {
     sentMessages.forEach((message) => {
       expect(message.text).toContain("Roomtone bot commands");
     });
+  });
+
+  it("notifies when new participants join", async () => {
+    participantSnapshots = [
+      [{ id: "p1", name: "Alice" }],
+      [
+        { id: "p1", name: "Alice" },
+        { id: "p2", name: "Bob" }
+      ],
+      [
+        { id: "p1", name: "Alice" },
+        { id: "p2", name: "Bob" }
+      ]
+    ];
+    participantIndex = 0;
+    sentMessages.length = 0;
+
+    const keyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const privatePem = keyPair.privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-bot-"));
+    const stateFile = path.join(stateDir, "bot-access.json");
+    const config = loadBotConfig({
+      BOT_ENABLED: "true",
+      TELEGRAM_BOT_TOKEN: "test-token",
+      TELEGRAM_ADMIN_USERS: "42",
+      TELEGRAM_NOTIFY_CHATS: "900",
+      BOT_PUBLIC_BASE_URL: "https://roomtone.example",
+      BOT_SERVER_BASE_URL: baseUrl,
+      BOT_JWT_PRIVATE_KEY: privatePem,
+      TELEGRAM_API_BASE_URL: baseUrl,
+      BOT_STATE_FILE: stateFile
+    } as NodeJS.ProcessEnv);
+
+    expect(config).not.toBeNull();
+    const api = new TelegramApi(config!.token, config!.telegramApiBaseUrl);
+    const bot = new ConnectionManagerBot(config!, api);
+
+    await bot.checkParticipantsOnce();
+    await bot.checkParticipantsOnce();
+    await bot.checkParticipantsOnce();
+
+    expect(sentMessages).toHaveLength(1);
+    const message = sentMessages[0];
+    expect(message.chat_id).toBe(900);
+    expect(message.parse_mode).toBe("HTML");
+    expect(message.text).toContain("Bob");
+    expect(message.text).toContain("<a href=\"https://roomtone.example/?token=");
+    expect(message.text).toContain(">Join Roomtone</a>");
   });
 });
 

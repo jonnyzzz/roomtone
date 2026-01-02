@@ -30,6 +30,7 @@ const maxPayloadBytes =
 const app = express();
 app.set("trust proxy", trustProxy);
 const authConfig = loadAuthConfig(process.env);
+const room = new RoomState();
 
 if (authConfig.enabled && authConfig.publicKeys.length === 0) {
   throw new Error("AUTH_ENABLED is true but no AUTH_PUBLIC_KEYS were provided.");
@@ -148,6 +149,10 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/participants", (_req, res) => {
+  res.json(room.list());
+});
+
 const clientDist = path.resolve(__dirname, "..", "client");
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
@@ -168,7 +173,6 @@ const wss = new WebSocketServer({
   path: "/ws",
   maxPayload: maxPayloadBytes
 });
-const room = new RoomState();
 const clientsById = new Map<string, WebSocket>();
 const clientsBySocket = new Map<WebSocket, Participant>();
 
