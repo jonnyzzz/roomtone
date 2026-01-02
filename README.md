@@ -184,6 +184,10 @@ Admins can manage allowlists with `/allow_user`, `/deny_user`, `/allow_chat`,
 
 Roomtone requires HTTPS for non-localhost traffic. Run it behind an HTTPS proxy or load balancer and set `TRUST_PROXY=true` so `X-Forwarded-Proto` can be trusted. Direct HTTP requests are rejected.
 
+## WebSocket Proxying
+
+Signaling depends on WebSocket upgrades. Ensure your edge proxy forwards `Connection: Upgrade` and `Upgrade: websocket`, and that Cloudflare WebSockets are enabled. If `/ws` responds with `426 Upgrade Required`, the proxy is not forwarding upgrade headers.
+
 ## No STUN/TURN
 
 This build uses host ICE candidates only. That keeps signaling on HTTPS/WSS but may reduce connectivity on strict NATs. If you need global NAT traversal later, reintroduce TURN support.

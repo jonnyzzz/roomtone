@@ -124,6 +124,25 @@ function respondAuthRequired(
 </html>`);
 }
 
+function logMissingWsUpgrade(req: express.Request): void {
+  const cleanUrl = sanitizeUrl(req.url);
+  const connectionHeader = req.headers.connection;
+  const upgradeHeader = req.headers.upgrade;
+  const protoHeader = req.headers["x-forwarded-proto"];
+  const connection = Array.isArray(connectionHeader)
+    ? connectionHeader.join(",")
+    : connectionHeader ?? "";
+  const upgrade = Array.isArray(upgradeHeader)
+    ? upgradeHeader.join(",")
+    : upgradeHeader ?? "";
+  const forwardedProto = Array.isArray(protoHeader)
+    ? protoHeader[0]
+    : protoHeader ?? "";
+  console.warn(
+    `[ws] Upgrade missing for ${cleanUrl} connection="${connection}" upgrade="${upgrade}" x-forwarded-proto="${forwardedProto}"`
+  );
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const cleanUrl = sanitizeUrl(req.url);
@@ -225,6 +244,16 @@ app.get("/health", (_req, res) => {
 
 app.get("/participants", (_req, res) => {
   res.json(room.list());
+});
+
+app.get("/ws", (req, res) => {
+  logMissingWsUpgrade(req);
+  res
+    .status(426)
+    .type("text/plain")
+    .send(
+      "WebSocket upgrade required. Ensure your proxy forwards Upgrade and Connection headers."
+    );
 });
 
 const clientDist = path.resolve(__dirname, "..", "client");
