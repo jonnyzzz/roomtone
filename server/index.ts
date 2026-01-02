@@ -69,7 +69,78 @@ function isSecureRequest(
   return raw.split(",")[0]?.trim() === "https";
 }
 
+function isHealthRequest(req: express.Request): boolean {
+  return req.path === "/health";
+}
+
+function sanitizeUrl(rawUrl: string | undefined): string {
+  if (!rawUrl) {
+    return "";
+  }
+  try {
+    const parsed = new URL(rawUrl, "http://localhost");
+    if (parsed.searchParams.has("token")) {
+      parsed.searchParams.set("token", "redacted");
+    }
+    return parsed.pathname + parsed.search;
+  } catch {
+    return rawUrl.replace(/token=[^&]+/g, "token=redacted");
+  }
+}
+
+function respondAuthRequired(
+  req: express.Request,
+  res: express.Response,
+  status: number,
+  reason: string
+): void {
+  const wantsHtml = Boolean(req.accepts("html"));
+  if (!wantsHtml) {
+    res.status(status).send(reason);
+    return;
+  }
+  res.status(status).type("html").send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Roomtone - Authentication Required</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 32px; background: #f6f6f6; }
+      .card { max-width: 560px; margin: 10vh auto; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.08); }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      p { margin: 8px 0; line-height: 1.4; }
+      code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Authentication required</h1>
+      <p>This Roomtone instance requires a signed invite link.</p>
+      <p>Please open the link you received from the bot, or use a URL with a <code>?token=...</code> parameter.</p>
+      <p>If you believe this is an error, request a fresh invite.</p>
+    </div>
+  </body>
+</html>`);
+}
+
 app.use((req, res, next) => {
+  const start = Date.now();
+  const cleanUrl = sanitizeUrl(req.url);
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    console.log(
+      `[http] ${req.method} ${cleanUrl} ${res.statusCode} ${duration}ms`
+    );
+  });
+  next();
+});
+
+app.use((req, res, next) => {
+  if (isHealthRequest(req)) {
+    next();
+    return;
+  }
   const isLoopback = isLoopbackAddress(req.socket.remoteAddress);
   if (
     allowInsecure ||
@@ -92,13 +163,18 @@ app.use((req, res, next) => {
     return;
   }
 
+  if (isHealthRequest(req)) {
+    next();
+    return;
+  }
+
   const lookup = getTokenFromRequest(
     req.url,
     req.headers,
     authConfig.cookieName
   );
   if (!lookup.token) {
-    res.status(401).send("Missing auth token.");
+    respondAuthRequired(req, res, 401, "Missing auth token.");
     return;
   }
 
@@ -110,18 +186,16 @@ app.use((req, res, next) => {
     authConfig.clockSkewSeconds
   );
   if (!result.ok || !result.claims) {
-    if (lookup.source === "cookie") {
-      const secureCookie = isSecureRequest(
-        req.headers,
-        (req.socket as { encrypted?: boolean }).encrypted,
-        trustProxy
-      );
-      res.setHeader(
-        "Set-Cookie",
-        buildClearCookie(authConfig.cookieName, secureCookie)
-      );
-    }
-    res.status(401).send("Invalid auth token.");
+    const secureCookie = isSecureRequest(
+      req.headers,
+      (req.socket as { encrypted?: boolean }).encrypted,
+      trustProxy
+    );
+    res.setHeader(
+      "Set-Cookie",
+      buildClearCookie(authConfig.cookieName, secureCookie)
+    );
+    respondAuthRequired(req, res, 401, "Invalid auth token.");
     return;
   }
 

@@ -62,9 +62,22 @@ Notes:
 
 ## Stevedore DynDNS Integration
 
-If you run [stevedore-dyndns](https://github.com/jonnyzzz/stevedore-dyndns), register
-the `krovatka` subdomain (matches the `stevedore.ingress.subdomain` label) and
-point the bot to the external URL:
+If you run [stevedore-dyndns](https://github.com/jonnyzzz/stevedore-dyndns) with
+`STEVEDORE_TOKEN` configured, it automatically discovers services with ingress
+labels (as in `docker-compose.yaml`). No manual registration is needed.
+
+If you cannot edit the compose file, configure ingress via Stevedore parameters
+for the `app` service:
+
+```bash
+stevedore param set roomtone STEVEDORE_INGRESS_APP_ENABLED true
+stevedore param set roomtone STEVEDORE_INGRESS_APP_SUBDOMAIN krovatka
+stevedore param set roomtone STEVEDORE_INGRESS_APP_PORT 5670
+stevedore param set roomtone STEVEDORE_INGRESS_APP_WEBSOCKET true
+stevedore param set roomtone STEVEDORE_INGRESS_APP_HEALTHCHECK /health
+```
+
+If discovery is disabled, register the subdomain manually:
 
 ```bash
 /opt/stevedore/deployments/dyndns/scripts/register-service.sh krovatka localhost:5670 --websocket
@@ -117,7 +130,6 @@ These environment variables control runtime behavior:
 | `AUTH_PUBLIC_KEYS_FILE` | Path to PEM public keys | empty |
 | `AUTH_COOKIE_NAME` | Cookie name for auth token | `roomtone_auth` |
 | `AUTH_CLOCK_SKEW_SECONDS` | Allowed clock skew for `exp` | `30` |
-| `AUTH_HEALTH_TOKEN` | JWT used by Docker healthcheck | empty |
 
 ## Authentication (JWT)
 

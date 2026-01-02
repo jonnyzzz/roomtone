@@ -94,12 +94,7 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
   expect(unauthRoot.status()).toBe(401);
 
   const unauthHealth = await request.get("/health", { failOnStatusCode: false });
-  expect(unauthHealth.status()).toBe(401);
-
-  const authedHealth = await request.get(
-    `/health?token=${encodeURIComponent(authToken)}`
-  );
-  expect(authedHealth.status()).toBe(200);
+  expect(unauthHealth.status()).toBe(200);
 
   const authedRoot = await request.get(
     `/?token=${encodeURIComponent(authToken)}`

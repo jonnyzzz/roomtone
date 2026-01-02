@@ -39,8 +39,7 @@ Enable auth and configure keys:
 - `AUTH_COOKIE_NAME` (default `roomtone_auth`)
 - `AUTH_CLOCK_SKEW_SECONDS` (default `30`)
 
-When auth is enabled, all endpoints, including `/health`, require a valid token.
-If you use Docker healthchecks, set `AUTH_HEALTH_TOKEN` to a valid JWT.
+The `/health` endpoint is intentionally unauthenticated for Docker healthchecks.
 
 ## Generate RSA 4096 Keys
 
