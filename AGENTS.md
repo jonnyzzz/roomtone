@@ -37,6 +37,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - `WS_MAX_PAYLOAD` limits WebSocket message size in bytes.
 - When `AUTH_ENABLED=true`, every HTTP request and WebSocket handshake requires a signed JWT token (`docs/AUTH.md`).
 - The Telegram bot requires `BOT_ENABLED=true`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, and `BOT_PUBLIC_BASE_URL`.
+- Admin commands are available when `TELEGRAM_ADMIN_USERS` or `TELEGRAM_ADMIN_USERNAMES` is set (see `docs/TELEGRAM_BOT.md`).
 - Stevedore deployments mount `STEVEDORE_DATA`, `STEVEDORE_LOGS`, and `STEVEDORE_SHARED` volumes.
 
 ## Implementation Conventions

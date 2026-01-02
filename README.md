@@ -143,6 +143,8 @@ Configuration:
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token | empty |
 | `TELEGRAM_ALLOWED_USERS` | Allowed Telegram user IDs (CSV/space) | empty |
 | `TELEGRAM_ALLOWED_CHATS` | Optional allowed chat IDs (CSV/space) | empty |
+| `TELEGRAM_ADMIN_USERS` | Admin Telegram user IDs (CSV/space) | empty |
+| `TELEGRAM_ADMIN_USERNAMES` | Admin usernames (CSV/space) | empty |
 | `BOT_COMMAND` | Command trigger (DM or group) | `/invite` |
 | `BOT_PUBLIC_BASE_URL` | Base URL for invite links | empty |
 | `BOT_JWT_PRIVATE_KEY` | RSA private key PEM for signing | empty |
@@ -150,6 +152,7 @@ Configuration:
 | `BOT_JWT_TTL_SECONDS` | Invite lifetime in seconds | `300` |
 | `BOT_JWT_ISSUER` | JWT issuer claim | `roomtone-telegram` |
 | `TELEGRAM_API_BASE_URL` | Telegram API base (tests) | `https://api.telegram.org` |
+| `BOT_STATE_FILE` | Persistent allowlist file | `/var/lib/roomtone/bot-access.json` |
 
 Run it with Docker Compose:
 
@@ -157,7 +160,8 @@ Run it with Docker Compose:
 docker compose --profile bot up --build
 ```
 
-See `docs/TELEGRAM_BOT.md` for key generation, allowlist setup, and examples.
+Admins can manage allowlists with `/allow_user`, `/deny_user`, `/allow_chat`,
+`/deny_chat`, and `/list_access` (see `docs/TELEGRAM_BOT.md`).
 
 ## HTTPS-Only Transport
 

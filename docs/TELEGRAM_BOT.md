@@ -25,11 +25,14 @@ openssl rsa -in roomtone.key -pubout -out roomtone.pub
 | `BOT_ENABLED` | yes | Set to `true` to run the bot |
 | `TELEGRAM_BOT_TOKEN` | yes | Bot token from @BotFather |
 | `TELEGRAM_ALLOWED_USERS` | yes | Comma or space separated Telegram user IDs |
+| `TELEGRAM_ADMIN_USERS` | no | Admin Telegram user IDs |
+| `TELEGRAM_ADMIN_USERNAMES` | no | Admin usernames (less stable than IDs) |
 | `BOT_PUBLIC_BASE_URL` | yes | Base URL for invite links |
 | `BOT_JWT_PRIVATE_KEY` or `BOT_JWT_PRIVATE_KEY_FILE` | yes | RSA private key |
 | `BOT_JWT_TTL_SECONDS` | no | Token TTL (default 300s) |
 | `BOT_COMMAND` | no | Command name (default `/invite`) |
 | `TELEGRAM_ALLOWED_CHATS` | no | Restrict links to specific chat IDs |
+| `BOT_STATE_FILE` | no | Allowlist persistence file |
 
 ## Using with Stevedore + Stevedore DynDNS
 
@@ -57,3 +60,23 @@ in the same chat with a unique invite link signed for your name.
 
 Tokens include your display name and expire after the configured TTL (default
 5 minutes).
+
+## Allowlist Persistence
+
+Admin changes are stored in `BOT_STATE_FILE` (default:
+`/var/lib/roomtone/bot-access.json`). Mount `/var/lib/roomtone` to keep the
+allowlist between restarts.
+
+## Admin Commands
+
+Admins can manage the allowlist at runtime:
+
+- `/whoami` - shows your user ID and the current chat ID.
+- `/allow_user <telegram_id>` - allow a user to request invites.
+- `/deny_user <telegram_id>` - remove a user from the allowlist.
+- `/allow_chat <chat_id>` - allow invites from a group chat.
+- `/deny_chat <chat_id>` - remove a group chat from the allowlist.
+- `/list_access` - show current allowlist/admins.
+
+Admin commands work in DMs or group chats, but note that responses are sent to
+the same chat where the command was issued.
