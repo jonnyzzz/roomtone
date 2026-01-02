@@ -41,17 +41,19 @@ openssl rsa -in roomtone.key -pubout -out roomtone.pub
 ## Using with Stevedore + Stevedore DynDNS
 
 If you deploy behind Stevedore DynDNS, set a public base URL that matches the
-subdomain you registered, for example:
+subdomain you registered. With prefix mode (`SUBDOMAIN_PREFIX=true`) the format
+is `https://<subdomain>-<base-domain>`:
 
 ```
-BOT_PUBLIC_BASE_URL=https://roomtone.example.com
+BOT_PUBLIC_BASE_URL=https://<subdomain>-<base-domain>
+BOT_SERVER_BASE_URL=https://<subdomain>-<base-domain>
 ```
 
 Roomtone also supports deriving the URL when both of these are set:
 
 ```
-ROOMTONE_SUBDOMAIN=roomtone
-DYNDNS_DOMAIN=example.com
+ROOMTONE_SUBDOMAIN=krovatka
+DYNDNS_DOMAIN=your-domain.example
 ```
 
 If Stevedore DynDNS exposes the domain in a shared file, you can point

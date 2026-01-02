@@ -2,6 +2,12 @@ services:
   app:
     build: .
     image: roomtone:latest
+    labels:
+      - "stevedore.ingress.enabled=true"
+      - "stevedore.ingress.subdomain=krovatka"
+      - "stevedore.ingress.port=5670"
+      - "stevedore.ingress.websocket=true"
+      - "stevedore.ingress.healthcheck=/health"
     ports:
       - "5670:5670"
     environment:

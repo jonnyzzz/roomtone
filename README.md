@@ -63,20 +63,24 @@ Notes:
 ## Stevedore DynDNS Integration
 
 If you run [stevedore-dyndns](https://github.com/jonnyzzz/stevedore-dyndns), register
-Roomtone as a subdomain and point the bot to the external URL:
+the `krovatka` subdomain (matches the `stevedore.ingress.subdomain` label) and
+point the bot to the external URL:
 
 ```bash
-/opt/stevedore/deployments/dyndns/scripts/register-service.sh roomtone localhost:5670 --websocket
+/opt/stevedore/deployments/dyndns/scripts/register-service.sh krovatka localhost:5670 --websocket
 ```
 
 Then set:
 
 ```
-BOT_PUBLIC_BASE_URL=https://roomtone.your-domain.example
+BOT_PUBLIC_BASE_URL=https://<subdomain>-<base-domain>
+BOT_SERVER_BASE_URL=https://<subdomain>-<base-domain>
 ```
 
-Roomtone also supports deriving the URL from `ROOMTONE_SUBDOMAIN` and
-`DYNDNS_DOMAIN` (or `DYNDNS_DOMAIN_FILE`).
+When `SUBDOMAIN_PREFIX=false`, use `https://<subdomain>.<base-domain>` instead.
+
+Roomtone also supports deriving the URL from `ROOMTONE_SUBDOMAIN` (defaults to
+`krovatka` in `.env.example`) and `DYNDNS_DOMAIN` (or `DYNDNS_DOMAIN_FILE`).
 
 ## Local Development
 
