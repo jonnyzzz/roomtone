@@ -299,16 +299,17 @@ describe("Telegram bot integration", () => {
     expect(message.parse_mode).toBe("HTML");
     expect(message.text).toContain("Bob");
     expect(message.text).toContain(`<a href="${baseUrl}/?token=`);
-    expect(message.text).toContain(">Join Roomtone</a>");
+    expect(message.text).toContain(">Join the Call...</a>");
   });
 });
 
 function extractToken(text: string): string | null {
-  const match = text.match(/https?:\/\/\S+/);
-  if (!match) {
+  const hrefMatch = text.match(/href="([^"]+)"/) ?? text.match(/href='([^']+)'/);
+  const rawUrl = hrefMatch ? hrefMatch[1] : text.match(/https?:\/\/\S+/)?.[0];
+  if (!rawUrl) {
     return null;
   }
-  const url = new URL(match[0]);
+  const url = new URL(rawUrl);
   return url.searchParams.get("token");
 }
 

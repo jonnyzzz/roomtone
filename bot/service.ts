@@ -172,8 +172,8 @@ export class ConnectionManagerBot {
     inviteUrl.searchParams.set("token", token);
 
     const minutes = Math.ceil(this.config.jwtTtlSeconds / 60);
-    const reply = `Here is your Roomtone invite link (valid for ${minutes} min): ${inviteUrl.toString()}`;
-    await this.api.sendMessage(message.chat.id, reply);
+    const reply = buildInviteMessage(inviteUrl.toString(), minutes);
+    await this.api.sendMessage(message.chat.id, reply, { parseMode: "HTML" });
   }
 
   private async handleAdminCommand(
@@ -377,7 +377,15 @@ function buildJoinNotification(name: string, url: string): string {
   const safeUrl = escapeHtml(url);
   return [
     `New participant: <b>${safeName}</b>`,
-    `Join: <a href="${safeUrl}">Join Roomtone</a>`
+    `<a href="${safeUrl}">Join the Call...</a>`
+  ].join("\n");
+}
+
+function buildInviteMessage(url: string, minutes: number): string {
+  const safeUrl = escapeHtml(url);
+  return [
+    `Invite link (valid for ${minutes} min):`,
+    `<a href="${safeUrl}">Join the Call...</a>`
   ].join("\n");
 }
 
