@@ -19,8 +19,202 @@ type ServerMessage =
   | { type: "signal"; from: string; data: SignalPayload }
   | { type: "error"; message: string };
 
+type Copy = {
+  brandTagline: string;
+  status: {
+    connected: string;
+    connecting: string;
+    error: string;
+    idle: string;
+  };
+  join: {
+    title: string;
+    subtitle: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    button: string;
+    joining: string;
+    hint: string;
+  };
+  notifications: {
+    title: string;
+    blocked: string;
+    prompt: string;
+    action: string;
+  };
+  errors: {
+    enterName: string;
+    httpsRequired: string;
+    badMessage: string;
+    connectPeer: string;
+    connectionClosed: string;
+    signaling: string;
+    startFailed: string;
+    notifyHttps: string;
+    notifyBlocked: string;
+    notifyEnableFailed: string;
+  };
+  call: {
+    roomTitle: string;
+    participantsLabel: (count: number) => string;
+  };
+  controls: {
+    mute: string;
+    unmute: string;
+    cameraOn: string;
+    cameraOff: string;
+    leave: string;
+  };
+  tiles: {
+    connecting: string;
+    you: string;
+  };
+  notificationTitle: string;
+  notificationBody: (name: string) => string;
+};
+
+const EN_COPY: Copy = {
+  brandTagline: "One room. Real voices.",
+  status: {
+    connected: "Live",
+    connecting: "Dialing",
+    error: "Offline",
+    idle: "Idle"
+  },
+  join: {
+    title: "Enter the room",
+    subtitle:
+      "Everyone meets in a single virtual room. Bring your mic and camera and you are in.",
+    nameLabel: "Your name",
+    namePlaceholder: "e.g. Tania",
+    button: "Join room",
+    joining: "Joining...",
+    hint: "For best results, allow camera and microphone when prompted."
+  },
+  notifications: {
+    title: "Stay in the loop.",
+    blocked: "Notifications are blocked in your browser settings.",
+    prompt: "Enable notifications to hear when someone joins the room.",
+    action: "Enable notifications"
+  },
+  errors: {
+    enterName: "Enter a name to join the room.",
+    httpsRequired: "HTTPS is required to join the room.",
+    badMessage: "Bad message from server.",
+    connectPeer: "Unable to connect to a peer.",
+    connectionClosed: "Connection closed.",
+    signaling: "Signaling error.",
+    startFailed:
+      "Unable to start the call. Check camera permissions and server access.",
+    notifyHttps: "Notifications require HTTPS.",
+    notifyBlocked: "Notifications are blocked in your browser settings.",
+    notifyEnableFailed: "Unable to enable notifications."
+  },
+  call: {
+    roomTitle: "Global room",
+    participantsLabel: (count) => (count === 1 ? "participant" : "participants")
+  },
+  controls: {
+    mute: "Mute",
+    unmute: "Unmute",
+    cameraOn: "Camera on",
+    cameraOff: "Camera off",
+    leave: "Leave"
+  },
+  tiles: {
+    connecting: "Connecting...",
+    you: "You"
+  },
+  notificationTitle: "Roomtone",
+  notificationBody: (name) => `${name} joined the room.`
+};
+
+const RU_COPY: Copy = {
+  brandTagline: "\u041e\u0434\u043d\u0430 \u043a\u043e\u043c\u043d\u0430\u0442\u0430. \u0416\u0438\u0432\u044b\u0435 \u0433\u043e\u043b\u043e\u0441\u0430.",
+  status: {
+    connected: "\u0412 \u044d\u0444\u0438\u0440\u0435",
+    connecting: "\u0421\u043e\u0435\u0434\u0438\u043d\u044f\u0435\u043c",
+    error: "\u041e\u0444\u043b\u0430\u0439\u043d",
+    idle: "\u041e\u0436\u0438\u0434\u0430\u043d\u0438\u0435"
+  },
+  join: {
+    title: "\u0412\u043e\u0439\u0442\u0438 \u0432 \u043a\u043e\u043c\u043d\u0430\u0442\u0443",
+    subtitle:
+      "\u0412\u0441\u0435 \u0432\u0441\u0442\u0440\u0435\u0447\u0430\u044e\u0442\u0441\u044f \u0432 \u043e\u0434\u043d\u043e\u0439 \u0432\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0439 \u043a\u043e\u043c\u043d\u0430\u0442\u0435. \u0412\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d \u0438 \u043a\u0430\u043c\u0435\u0440\u0443 \u2014 \u0438 \u0432\u044b \u0432 \u044d\u0444\u0438\u0440\u0435.",
+    nameLabel: "\u0412\u0430\u0448\u0435 \u0438\u043c\u044f",
+    namePlaceholder: "\u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, \u0422\u0430\u043d\u044f",
+    button: "\u041f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u0438\u0442\u044c\u0441\u044f",
+    joining: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0430\u0435\u043c\u0441\u044f...",
+    hint:
+      "\u0414\u043b\u044f \u043b\u0443\u0447\u0448\u0435\u0433\u043e \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0430 \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u043a\u0430\u043c\u0435\u0440\u0435 \u0438 \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443."
+  },
+  notifications: {
+    title: "\u0411\u0443\u0434\u044c\u0442\u0435 \u0432 \u043a\u0443\u0440\u0441\u0435.",
+    blocked:
+      "\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.",
+    prompt:
+      "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f, \u0447\u0442\u043e\u0431\u044b \u0437\u043d\u0430\u0442\u044c, \u043a\u043e\u0433\u0434\u0430 \u043a\u0442\u043e-\u0442\u043e \u043f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u044f\u0435\u0442\u0441\u044f \u043a \u043a\u043e\u043c\u043d\u0430\u0442\u0435.",
+    action: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f"
+  },
+  errors: {
+    enterName:
+      "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043c\u044f, \u0447\u0442\u043e\u0431\u044b \u043f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u0438\u0442\u044c\u0441\u044f.",
+    httpsRequired: "\u0414\u043b\u044f \u0432\u0445\u043e\u0434\u0430 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f HTTPS.",
+    badMessage: "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u043e\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u0430.",
+    connectPeer:
+      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u043a \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u0443.",
+    connectionClosed: "\u0421\u043e\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u0435 \u0437\u0430\u043a\u0440\u044b\u0442\u043e.",
+    signaling: "\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0438\u0433\u043d\u0430\u043b\u0438\u043d\u0433\u0430.",
+    startFailed:
+      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0437\u0432\u043e\u043d\u043e\u043a. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f \u043a\u0430\u043c\u0435\u0440\u044b \u0438 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0441\u0435\u0440\u0432\u0435\u0440\u0443.",
+    notifyHttps: "\u0414\u043b\u044f \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0439 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f HTTPS.",
+    notifyBlocked:
+      "\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.",
+    notifyEnableFailed:
+      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f."
+  },
+  call: {
+    roomTitle: "\u041e\u0431\u0449\u0430\u044f \u043a\u043e\u043c\u043d\u0430\u0442\u0430",
+    participantsLabel: (count) => {
+      const mod10 = count % 10;
+      const mod100 = count % 100;
+      if (mod10 === 1 && mod100 !== 11) {
+        return "\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a";
+      }
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+        return "\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u0430";
+      }
+      return "\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u043e\u0432";
+    }
+  },
+  controls: {
+    mute: "\u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0437\u0432\u0443\u043a",
+    unmute: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0437\u0432\u0443\u043a",
+    cameraOn: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043a\u0430\u043c\u0435\u0440\u0443",
+    cameraOff: "\u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043a\u0430\u043c\u0435\u0440\u0443",
+    leave: "\u0412\u044b\u0439\u0442\u0438"
+  },
+  tiles: {
+    connecting: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435...",
+    you: "\u0412\u044b"
+  },
+  notificationTitle: "Roomtone",
+  notificationBody: (name) =>
+    `${name} \u043f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u0438\u043b\u0441\u044f(\u0430\u0441\u044c) \u043a \u043a\u043e\u043c\u043d\u0430\u0442\u0435.`
+};
+
 function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function isRussianLocale(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  const languages = Array.isArray(navigator.languages) && navigator.languages.length > 0
+    ? navigator.languages
+    : [navigator.language];
+  return languages.some((lang) => lang?.toLowerCase().startsWith("ru"));
 }
 
 function decodeJwtName(token: string | null): string | null {
@@ -52,10 +246,12 @@ function base64UrlToBase64(input: string): string {
 
 function NotificationPrompt({
   permission,
-  onRequest
+  onRequest,
+  copy
 }: {
   permission: NotificationState;
   onRequest: () => void;
+  copy: Copy["notifications"];
 }) {
   if (permission === "unsupported" || permission === "granted") {
     return null;
@@ -64,16 +260,14 @@ function NotificationPrompt({
   return (
     <div className="notify">
       <div>
-        <strong>Stay in the loop.</strong>
+        <strong>{copy.title}</strong>
         <p>
-          {permission === "denied"
-            ? "Notifications are blocked in your browser settings."
-            : "Enable notifications to hear when someone joins the room."}
+          {permission === "denied" ? copy.blocked : copy.prompt}
         </p>
       </div>
       {permission === "default" ? (
         <button className="btn btn--ghost" onClick={onRequest}>
-          Enable notifications
+          {copy.action}
         </button>
       ) : null}
     </div>
@@ -85,13 +279,17 @@ function VideoTile({
   name,
   muted,
   isLocal,
-  index
+  index,
+  localLabel,
+  connectingLabel
 }: {
   stream?: MediaStream;
   name: string;
   muted: boolean;
   isLocal: boolean;
   index: number;
+  localLabel: string;
+  connectingLabel: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -115,14 +313,17 @@ function VideoTile({
       />
       <div className="tile__label">
         <span>{name}</span>
-        {isLocal ? <em>You</em> : null}
+        {isLocal ? <em>{localLabel}</em> : null}
       </div>
-      {!stream ? <div className="tile__placeholder">Connecting...</div> : null}
+      {!stream ? (
+        <div className="tile__placeholder">{connectingLabel}</div>
+      ) : null}
     </div>
   );
 }
 
 export default function App() {
+  const copy = useMemo(() => (isRussianLocale() ? RU_COPY : EN_COPY), []);
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
   const [status, setStatus] = useState<
@@ -228,7 +429,7 @@ export default function App() {
       window.location.protocol !== "https:" &&
       !isLocalhost(window.location.hostname)
     ) {
-      setError("Notifications require HTTPS.");
+      setError(copy.errors.notifyHttps);
       return;
     }
 
@@ -236,12 +437,12 @@ export default function App() {
       const result = await Notification.requestPermission();
       setNotificationPermission(result);
       if (result === "denied") {
-        setError("Notifications are blocked in your browser settings.");
+        setError(copy.errors.notifyBlocked);
       }
     } catch {
-      setError("Unable to enable notifications.");
+      setError(copy.errors.notifyEnableFailed);
     }
-  }, []);
+  }, [copy]);
 
   const notifyPeerJoined = useCallback((peer: Participant) => {
     if (!("Notification" in window)) {
@@ -251,14 +452,14 @@ export default function App() {
       return;
     }
     try {
-      new Notification("Roomtone", {
-        body: `${peer.name} joined the room.`,
+      new Notification(copy.notificationTitle, {
+        body: copy.notificationBody(peer.name),
         tag: `peer-${peer.id}`
       });
     } catch {
       // Ignore notification failures.
     }
-  }, []);
+  }, [copy]);
 
   const ensurePeerConnection = useCallback(
     (peerId: string) => {
@@ -340,10 +541,10 @@ export default function App() {
           }
         }
       } catch {
-        setError("Signaling error.");
+        setError(copy.errors.signaling);
       }
     },
-    [ensurePeerConnection, sendSignal, setError]
+    [copy, ensurePeerConnection, sendSignal, setError]
   );
 
   const handlePeerJoined = useCallback(
@@ -358,10 +559,10 @@ export default function App() {
           sendSignal(peer.id, { description: pc.localDescription });
         }
       } catch {
-        setError("Unable to connect to a peer.");
+        setError(copy.errors.connectPeer);
       }
     },
-    [ensurePeerConnection, notifyPeerJoined, sendSignal, setError]
+    [copy, ensurePeerConnection, notifyPeerJoined, sendSignal, setError]
   );
 
   const handlePeerLeft = useCallback((peerId: string) => {
@@ -391,7 +592,7 @@ export default function App() {
   const joinRoom = useCallback(async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Enter a name to join the room.");
+      setError(copy.errors.enterName);
       return;
     }
 
@@ -399,7 +600,7 @@ export default function App() {
       window.location.protocol !== "https:" &&
       !isLocalhost(window.location.hostname)
     ) {
-      setError("HTTPS is required to join the room.");
+      setError(copy.errors.httpsRequired);
       return;
     }
 
@@ -442,7 +643,7 @@ export default function App() {
         try {
           message = JSON.parse(event.data) as ServerMessage;
         } catch {
-          setError("Bad message from server.");
+          setError(copy.errors.badMessage);
           return;
         }
         if (message.type === "welcome") {
@@ -479,7 +680,7 @@ export default function App() {
           return;
         }
         setStatus("error");
-        setError("Connection closed.");
+        setError(copy.errors.connectionClosed);
         wsRef.current = null;
         clearConnections();
         stopLocalStream();
@@ -488,15 +689,21 @@ export default function App() {
 
       ws.onerror = () => {
         setStatus("error");
-        setError("Signaling error.");
+        setError(copy.errors.signaling);
       };
     } catch (err) {
       setStatus("error");
-      setError(
-        "Unable to start the call. Check camera permissions and server access."
-      );
+      setError(copy.errors.startFailed);
     }
-  }, [handlePeerJoined, handlePeerLeft, handleSignal, name, status, wsUrl]);
+  }, [
+    copy,
+    handlePeerJoined,
+    handlePeerLeft,
+    handleSignal,
+    name,
+    status,
+    wsUrl
+  ]);
 
   const toggleMic = useCallback(() => {
     const stream = localStreamRef.current;
@@ -528,6 +735,8 @@ export default function App() {
       muted={false}
       isLocal={false}
       index={index + 1}
+      localLabel={copy.tiles.you}
+      connectingLabel={copy.tiles.connecting}
     />
   ));
   const showLocalInGrid = participants.length === 0;
@@ -538,6 +747,8 @@ export default function App() {
       muted={true}
       isLocal={true}
       index={0}
+      localLabel={copy.tiles.you}
+      connectingLabel={copy.tiles.connecting}
     />
   );
 
@@ -549,7 +760,7 @@ export default function App() {
           <div className="brand__mark">RT</div>
           <div>
             <p className="brand__name">Roomtone</p>
-            <p className="brand__tag">One room. Real voices.</p>
+            <p className="brand__tag">{copy.brandTagline}</p>
           </div>
         </div>
         <div className="status" data-testid="status-label">
@@ -559,12 +770,12 @@ export default function App() {
           />
           <span>
             {status === "connected"
-              ? "Live"
+              ? copy.status.connected
               : status === "connecting"
-                ? "Dialing"
+                ? copy.status.connecting
                 : status === "error"
-                  ? "Offline"
-                  : "Idle"}
+                  ? copy.status.error
+                  : copy.status.idle}
           </span>
         </div>
       </header>
@@ -572,13 +783,10 @@ export default function App() {
       {!joined ? (
         <section className="join">
           <div className="join__card">
-            <h1>Enter the room</h1>
-            <p>
-              Everyone meets in a single virtual room. Bring your mic and camera
-              and you are in.
-            </p>
+            <h1>{copy.join.title}</h1>
+            <p>{copy.join.subtitle}</p>
             <label className="join__field">
-              <span>Your name</span>
+              <span>{copy.join.nameLabel}</span>
               <input
                 data-testid="join-name"
                 value={name}
@@ -588,7 +796,7 @@ export default function App() {
                     joinRoom();
                   }
                 }}
-                placeholder="e.g. Tania"
+                placeholder={copy.join.namePlaceholder}
                 autoComplete="name"
               />
             </label>
@@ -599,42 +807,42 @@ export default function App() {
               onClick={joinRoom}
               disabled={status === "connecting"}
             >
-              {status === "connecting" ? "Joining..." : "Join room"}
+              {status === "connecting" ? copy.join.joining : copy.join.button}
             </button>
             <NotificationPrompt
               permission={notificationPermission}
               onRequest={requestNotifications}
+              copy={copy.notifications}
             />
-            <div className="join__hint">
-              For best results, allow camera and microphone when prompted.
-            </div>
+            <div className="join__hint">{copy.join.hint}</div>
           </div>
         </section>
       ) : (
         <main className="call">
           <div className="call__header">
             <div>
-              <h2>Global room</h2>
+              <h2>{copy.call.roomTitle}</h2>
               <p className="call__meta">
                 <span data-testid="participant-count">{participantCount}</span>
-                <span>participants</span>
+                <span>{copy.call.participantsLabel(participantCount)}</span>
               </p>
             </div>
             <div className="controls">
               <button className="btn btn--ghost" onClick={toggleMic}>
-                {micMuted ? "Unmute" : "Mute"}
+                {micMuted ? copy.controls.unmute : copy.controls.mute}
               </button>
               <button className="btn btn--ghost" onClick={toggleCamera}>
-                {cameraOff ? "Camera on" : "Camera off"}
+                {cameraOff ? copy.controls.cameraOn : copy.controls.cameraOff}
               </button>
               <button className="btn btn--danger" onClick={disconnect}>
-                Leave
+                {copy.controls.leave}
               </button>
             </div>
           </div>
           <NotificationPrompt
             permission={notificationPermission}
             onRequest={requestNotifications}
+            copy={copy.notifications}
           />
           <div className="call__stage">
             <div
