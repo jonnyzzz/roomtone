@@ -29,8 +29,7 @@ openssl rsa -in roomtone.key -pubout -out roomtone.pub
 | `TELEGRAM_ADMIN_USERNAMES` | no | Admin usernames (less stable than IDs) |
 | `TELEGRAM_BOT_USERNAME` | no | Bot username (for mention detection) |
 | `TELEGRAM_NOTIFY_CHATS` | no | Chat IDs that receive join notifications |
-| `BOT_PUBLIC_BASE_URL` | yes | Base URL for invite links |
-| `BOT_SERVER_BASE_URL` | no | Roomtone base URL for polling participants |
+| `PUBLIC_BASE_URL` | yes | Base URL for invite links and polling |
 | `BOT_JWT_PRIVATE_KEY` or `BOT_JWT_PRIVATE_KEY_FILE` | yes | RSA private key |
 | `BOT_JWT_TTL_SECONDS` | no | Token TTL (default 300s) |
 | `BOT_COMMAND` | no | Command name (default `/invite`) |
@@ -45,11 +44,10 @@ subdomain you registered. With prefix mode (`SUBDOMAIN_PREFIX=true`) the format
 is `https://<subdomain>-<base-domain>`:
 
 ```
-BOT_PUBLIC_BASE_URL=https://<subdomain>-<base-domain>
-BOT_SERVER_BASE_URL=https://<subdomain>-<base-domain>
+PUBLIC_BASE_URL=https://<subdomain>-<base-domain>
 ```
 
-Roomtone also supports deriving the URL when both of these are set:
+Roomtone can also derive the URL when both of these are set (non-prefix mode):
 
 ```
 ROOMTONE_SUBDOMAIN=krovatka

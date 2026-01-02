@@ -13,7 +13,8 @@
     "start:bot": "node dist/bot/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "pentest:auth": "./scripts/pentest-auth.sh"
   },
   "dependencies": {
     "express": "^4.19.2",

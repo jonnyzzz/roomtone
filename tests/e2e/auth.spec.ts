@@ -101,6 +101,26 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
   );
   expect(authedHealth.status()).toBe(200);
 
+  const authedRoot = await request.get(
+    `/?token=${encodeURIComponent(authToken)}`
+  );
+  expect(authedRoot.status()).toBe(200);
+  const authedHtml = await authedRoot.text();
+  const assetPath = extractFirstAssetPath(authedHtml);
+  const unauthRequest = await request.newContext({ baseURL: BASE_URL });
+  const unauthAsset = await unauthRequest.get(assetPath, {
+    failOnStatusCode: false
+  });
+  expect(unauthAsset.status()).toBe(401);
+  await unauthRequest.dispose();
+
+  const authedAsset = await request.get(
+    `${assetPath}${assetPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(
+      authToken
+    )}`
+  );
+  expect(authedAsset.status()).toBe(200);
+
   const context = await browser.newContext({
     permissions: ["camera", "microphone"]
   });
@@ -118,3 +138,11 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
 
   await context.close();
 });
+
+function extractFirstAssetPath(html: string): string {
+  const match = html.match(/(?:src|href)=\"(\\/assets\\/[^\"\\s]+)\"/);
+  if (!match) {
+    throw new Error("No asset reference found in HTML.");
+  }
+  return match[1];
+}

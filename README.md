@@ -73,8 +73,7 @@ point the bot to the external URL:
 Then set:
 
 ```
-BOT_PUBLIC_BASE_URL=https://<subdomain>-<base-domain>
-BOT_SERVER_BASE_URL=https://<subdomain>-<base-domain>
+PUBLIC_BASE_URL=https://<subdomain>-<base-domain>
 ```
 
 When `SUBDOMAIN_PREFIX=false`, use `https://<subdomain>.<base-domain>` instead.
@@ -119,7 +118,6 @@ These environment variables control runtime behavior:
 | `AUTH_COOKIE_NAME` | Cookie name for auth token | `roomtone_auth` |
 | `AUTH_CLOCK_SKEW_SECONDS` | Allowed clock skew for `exp` | `30` |
 | `AUTH_HEALTH_TOKEN` | JWT used by Docker healthcheck | empty |
-| `PUBLIC_BASE_URL` | Base URL for invite links (used by bot) | empty |
 
 ## Authentication (JWT)
 
@@ -152,8 +150,7 @@ Configuration:
 | `TELEGRAM_BOT_USERNAME` | Bot username for mention detection | empty |
 | `TELEGRAM_NOTIFY_CHATS` | Chat IDs to receive join notifications | empty |
 | `BOT_COMMAND` | Command trigger (DM or group) | `/invite` |
-| `BOT_PUBLIC_BASE_URL` | Base URL for invite links | empty |
-| `BOT_SERVER_BASE_URL` | Roomtone base URL for participant polling | empty |
+| `PUBLIC_BASE_URL` | Base URL for invite links and bot polling | empty |
 | `BOT_JWT_PRIVATE_KEY` | RSA private key PEM for signing | empty |
 | `BOT_JWT_PRIVATE_KEY_FILE` | RSA private key file path | empty |
 | `BOT_JWT_TTL_SECONDS` | Invite lifetime in seconds | `300` |
@@ -196,6 +193,12 @@ Run Playwright integration tests (builds first):
 ```bash
 npx playwright install
 npm run test:e2e
+```
+
+Run the OWASP ZAP auth-mode pentest harness:
+
+```bash
+./scripts/pentest-auth.sh
 ```
 
 ## License

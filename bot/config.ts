@@ -54,13 +54,11 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
   const baseUrlRaw = resolveBaseUrl(env);
   if (!baseUrlRaw) {
     throw new Error(
-      "BOT_PUBLIC_BASE_URL (or PUBLIC_BASE_URL / DYNDNS_DOMAIN + ROOMTONE_SUBDOMAIN) is required."
+      "PUBLIC_BASE_URL (or DYNDNS_DOMAIN + ROOMTONE_SUBDOMAIN) is required."
     );
   }
   const publicBaseUrl = new URL(baseUrlRaw);
-  const serverBaseUrlRaw =
-    env.BOT_SERVER_BASE_URL?.trim() || publicBaseUrl.toString();
-  const serverBaseUrl = new URL(serverBaseUrlRaw);
+  const serverBaseUrl = new URL(publicBaseUrl.toString());
 
   const jwtPrivateKey = loadPrivateKey(env);
   const jwtTtlSeconds = parsePositiveInt(
@@ -214,8 +212,7 @@ function validatePrivateKey(pem: string): string | null {
 }
 
 function resolveBaseUrl(env: NodeJS.ProcessEnv): string | null {
-  const direct =
-    env.BOT_PUBLIC_BASE_URL?.trim() || env.PUBLIC_BASE_URL?.trim();
+  const direct = env.PUBLIC_BASE_URL?.trim();
   if (direct) {
     return direct;
   }

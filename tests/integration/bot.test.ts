@@ -148,7 +148,7 @@ describe("Telegram bot integration", () => {
       TELEGRAM_ADMIN_USERS: "42",
       TELEGRAM_ALLOWED_CHATS: "300",
       TELEGRAM_BOT_USERNAME: "roomtone_bot",
-      BOT_PUBLIC_BASE_URL: "https://roomtone.example",
+      PUBLIC_BASE_URL: "https://roomtone.example",
       BOT_JWT_PRIVATE_KEY: privatePem,
       BOT_JWT_TTL_SECONDS: "300",
       BOT_JWT_ISSUER: "roomtone-telegram",
@@ -231,7 +231,7 @@ describe("Telegram bot integration", () => {
       TELEGRAM_BOT_TOKEN: "test-token",
       TELEGRAM_ADMIN_USERS: "42",
       TELEGRAM_BOT_USERNAME: "roomtone_bot",
-      BOT_PUBLIC_BASE_URL: "https://roomtone.example",
+      PUBLIC_BASE_URL: "https://roomtone.example",
       BOT_JWT_PRIVATE_KEY: crypto
         .generateKeyPairSync("rsa", { modulusLength: 2048 })
         .privateKey.export({ type: "pkcs8", format: "pem" })
@@ -279,8 +279,7 @@ describe("Telegram bot integration", () => {
       TELEGRAM_BOT_TOKEN: "test-token",
       TELEGRAM_ADMIN_USERS: "42",
       TELEGRAM_NOTIFY_CHATS: "900",
-      BOT_PUBLIC_BASE_URL: "https://roomtone.example",
-      BOT_SERVER_BASE_URL: baseUrl,
+      PUBLIC_BASE_URL: baseUrl,
       BOT_JWT_PRIVATE_KEY: privatePem,
       TELEGRAM_API_BASE_URL: baseUrl,
       BOT_STATE_FILE: stateFile
@@ -299,7 +298,7 @@ describe("Telegram bot integration", () => {
     expect(message.chat_id).toBe(900);
     expect(message.parse_mode).toBe("HTML");
     expect(message.text).toContain("Bob");
-    expect(message.text).toContain("<a href=\"https://roomtone.example/?token=");
+    expect(message.text).toContain(`<a href="${baseUrl}/?token=`);
     expect(message.text).toContain(">Join Roomtone</a>");
   });
 });

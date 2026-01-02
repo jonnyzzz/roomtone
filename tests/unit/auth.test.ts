@@ -25,7 +25,14 @@ function signJwt(
   payload: Record<string, unknown>,
   privateKey: crypto.KeyObject
 ): string {
-  const header = { alg: "RS256", typ: "JWT" };
+  return signJwtWithHeader(payload, privateKey, { alg: "RS256", typ: "JWT" });
+}
+
+function signJwtWithHeader(
+  payload: Record<string, unknown>,
+  privateKey: crypto.KeyObject,
+  header: Record<string, unknown>
+): string {
   const signingInput = `${base64UrlEncode(
     JSON.stringify(header)
   )}.${base64UrlEncode(JSON.stringify(payload))}`;
@@ -146,6 +153,26 @@ describe("auth", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Token exp missing.");
+  });
+
+  it("rejects tokens signed with a non-RS256 alg header", () => {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+      modulusLength: 2048
+    });
+    const now = Math.floor(Date.now() / 1000);
+    const token = signJwtWithHeader(
+      { exp: now + 60 },
+      privateKey,
+      { alg: "RS512", typ: "JWT" }
+    );
+    const publicPem = publicKey
+      .export({ type: "spki", format: "pem" })
+      .toString();
+
+    const result = verifyJwt(token, [publicPem], now, 0);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("Token algorithm not allowed.");
   });
 
   it("extracts tokens from headers, query, and cookies", () => {
