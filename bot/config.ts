@@ -5,12 +5,15 @@ export type BotConfig = {
   token: string;
   allowedUsers: Set<number>;
   allowedChats: Set<number> | null;
+  adminUsers: Set<number>;
+  adminUsernames: Set<string>;
   command: string;
   publicBaseUrl: URL;
   jwtPrivateKey: string;
   jwtTtlSeconds: number;
   jwtIssuer: string;
   telegramApiBaseUrl: string;
+  stateFile: string;
 };
 
 const MIN_RSA_BITS = 2048;
@@ -22,10 +25,14 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
 
   const token = requireValue(env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN");
   const allowedUsers = parseIdList(
-    requireValue(env.TELEGRAM_ALLOWED_USERS, "TELEGRAM_ALLOWED_USERS")
+    env.TELEGRAM_ALLOWED_USERS ?? ""
   );
-  if (allowedUsers.size === 0) {
-    throw new Error("TELEGRAM_ALLOWED_USERS must include at least one user id.");
+  const adminUsers = parseIdList(env.TELEGRAM_ADMIN_USERS ?? "");
+  const adminUsernames = parseUsernameList(env.TELEGRAM_ADMIN_USERNAMES ?? "");
+  if (allowedUsers.size === 0 && adminUsers.size === 0 && adminUsernames.size === 0) {
+    throw new Error(
+      "TELEGRAM_ALLOWED_USERS or TELEGRAM_ADMIN_USERS must include at least one entry."
+    );
   }
 
   const allowedChats = parseOptionalIdList(env.TELEGRAM_ALLOWED_CHATS);
@@ -49,17 +56,22 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
   const jwtIssuer = env.BOT_JWT_ISSUER?.trim() || "roomtone-telegram";
   const telegramApiBaseUrl =
     env.TELEGRAM_API_BASE_URL?.trim() || "https://api.telegram.org";
+  const stateFile =
+    env.BOT_STATE_FILE?.trim() || "/var/lib/roomtone/bot-access.json";
 
   return {
     token,
     allowedUsers,
     allowedChats,
+    adminUsers,
+    adminUsernames,
     command,
     publicBaseUrl,
     jwtPrivateKey,
     jwtTtlSeconds,
     jwtIssuer,
-    telegramApiBaseUrl
+    telegramApiBaseUrl,
+    stateFile
   };
 }
 
@@ -73,6 +85,21 @@ function parseIdList(raw: string): Set<number> {
       const value = Number(part);
       if (Number.isFinite(value)) {
         result.add(value);
+      }
+    });
+  return result;
+}
+
+function parseUsernameList(raw: string): Set<string> {
+  const result = new Set<string>();
+  raw
+    .split(/[,\s]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .forEach((part) => {
+      const normalized = part.replace(/^@/, "").toLowerCase();
+      if (normalized) {
+        result.add(normalized);
       }
     });
   return result;

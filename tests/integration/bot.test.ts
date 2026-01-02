@@ -1,4 +1,7 @@
 import crypto from "crypto";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { createServer } from "http";
 import { once } from "events";
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
@@ -86,7 +89,7 @@ describe("Telegram bot integration", () => {
         update_id: 2,
         message: {
           message_id: 2,
-          text: "/invite",
+          text: "/allow_user 7",
           from: { id: 42, first_name: "Ada", last_name: "Lovelace" },
           chat: { id: 200, type: "private" }
         }
@@ -95,8 +98,26 @@ describe("Telegram bot integration", () => {
         update_id: 3,
         message: {
           message_id: 3,
-          text: "/invite@roomtone_bot",
+          text: "/allow_chat 300",
           from: { id: 42, first_name: "Ada", last_name: "Lovelace" },
+          chat: { id: 200, type: "private" }
+        }
+      },
+      {
+        update_id: 4,
+        message: {
+          message_id: 4,
+          text: "/invite",
+          from: { id: 7, first_name: "Eve" },
+          chat: { id: 100, type: "private" }
+        }
+      },
+      {
+        update_id: 5,
+        message: {
+          message_id: 5,
+          text: "/invite",
+          from: { id: 7, first_name: "Eve" },
           chat: { id: 300, type: "group", title: "Roomtone" }
         }
       }
@@ -104,15 +125,20 @@ describe("Telegram bot integration", () => {
     updatesServed = false;
     sentMessages.length = 0;
 
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-bot-"));
+    const stateFile = path.join(stateDir, "bot-access.json");
     const config = loadBotConfig({
       BOT_ENABLED: "true",
       TELEGRAM_BOT_TOKEN: "test-token",
       TELEGRAM_ALLOWED_USERS: "42",
+      TELEGRAM_ADMIN_USERS: "42",
+      TELEGRAM_ALLOWED_CHATS: "300",
       BOT_PUBLIC_BASE_URL: "https://roomtone.example",
       BOT_JWT_PRIVATE_KEY: privatePem,
       BOT_JWT_TTL_SECONDS: "300",
       BOT_JWT_ISSUER: "roomtone-telegram",
-      TELEGRAM_API_BASE_URL: baseUrl
+      TELEGRAM_API_BASE_URL: baseUrl,
+      BOT_STATE_FILE: stateFile
     } as NodeJS.ProcessEnv);
 
     expect(config).not.toBeNull();
@@ -121,7 +147,11 @@ describe("Telegram bot integration", () => {
 
     await bot.pollOnce();
 
-    expect(sentMessages).toHaveLength(3);
+    expect(sentMessages).toHaveLength(5);
+    expect(sentMessages[0].text).toBe("Not authorized.");
+    expect(sentMessages[1].text).toBe("User 7 allowed.");
+    expect(sentMessages[2].text).toBe("Chat 300 allowed.");
+
     const inviteMessages = sentMessages
       .map((message) => ({ message, token: extractToken(message.text) }))
       .filter((item): item is { message: SentMessage; token: string } => Boolean(item.token));
@@ -132,7 +162,7 @@ describe("Telegram bot integration", () => {
     for (const invite of inviteMessages) {
       const result = verifyJwt(invite.token, [publicPem], now, 5);
       expect(result.ok).toBe(true);
-      expect(result.claims?.name).toBe("Ada Lovelace");
+      expect(result.claims?.name).toBe("Eve");
       expect(typeof result.claims?.jti).toBe("string");
     }
   });
