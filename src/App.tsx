@@ -23,6 +23,33 @@ function isLocalhost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
+function decodeJwtName(token: string | null): string | null {
+  if (!token) {
+    return null;
+  }
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(atob(base64UrlToBase64(parts[1]))) as {
+      name?: string;
+    };
+    if (payload?.name && typeof payload.name === "string") {
+      return payload.name;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function base64UrlToBase64(input: string): string {
+  const padded = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padLength = padded.length % 4 ? 4 - (padded.length % 4) : 0;
+  return padded + "=".repeat(padLength);
+}
+
 function NotificationPrompt({
   permission,
   onRequest
@@ -120,6 +147,11 @@ export default function App() {
   const localStreamRef = useRef<MediaStream | null>(null);
 
   const participantCount = joined ? participants.length + 1 : 0;
+  const authToken = useMemo(
+    () => new URLSearchParams(window.location.search).get("token"),
+    []
+  );
+  const defaultName = useMemo(() => decodeJwtName(authToken), [authToken]);
 
   useEffect(() => {
     if (!("Notification" in window)) {
@@ -128,6 +160,12 @@ export default function App() {
     }
     setNotificationPermission(Notification.permission);
   }, []);
+
+  useEffect(() => {
+    if (!name && defaultName) {
+      setName(defaultName);
+    }
+  }, [defaultName, name]);
 
   const clearConnections = useCallback(() => {
     for (const pc of peerConnectionsRef.current.values()) {
@@ -332,8 +370,11 @@ export default function App() {
   const wsUrl = useMemo(() => {
     const url = new URL("/ws", window.location.href);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    if (authToken) {
+      url.searchParams.set("token", authToken);
+    }
     return url.toString();
-  }, []);
+  }, [authToken]);
 
   const joinRoom = useCallback(async () => {
     const trimmed = name.trim();

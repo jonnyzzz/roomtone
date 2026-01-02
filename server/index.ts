@@ -6,6 +6,12 @@ import fs from "fs";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { RoomState, Participant } from "./room";
+import {
+  buildAuthCookie,
+  getTokenFromRequest,
+  loadAuthConfig,
+  verifyJwt
+} from "./auth";
 
 const port = Number(process.env.PORT ?? "5670");
 const allowInsecure = process.env.ALLOW_INSECURE_HTTP === "true";
@@ -22,6 +28,11 @@ const maxPayloadBytes =
     : 1048576;
 const app = express();
 app.set("trust proxy", trustProxy);
+const authConfig = loadAuthConfig(process.env);
+
+if (authConfig.enabled && authConfig.publicKeys.length === 0) {
+  throw new Error("AUTH_ENABLED is true but no AUTH_PUBLIC_KEYS were provided.");
+}
 
 function isLoopbackAddress(address?: string): boolean {
   if (!address) {
@@ -71,6 +82,54 @@ app.use((req, res, next) => {
     return;
   }
   res.status(400).send("HTTPS is required.");
+});
+
+app.use((req, res, next) => {
+  if (!authConfig.enabled) {
+    next();
+    return;
+  }
+
+  const lookup = getTokenFromRequest(
+    req.url,
+    req.headers,
+    authConfig.cookieName
+  );
+  if (!lookup.token) {
+    res.status(401).send("Missing auth token.");
+    return;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const result = verifyJwt(
+    lookup.token,
+    authConfig.publicKeys,
+    nowSeconds,
+    authConfig.clockSkewSeconds
+  );
+  if (!result.ok || !result.claims) {
+    res.status(401).send(result.error ?? "Invalid auth token.");
+    return;
+  }
+
+  if (lookup.source !== "cookie") {
+    const expiresIn = Math.max(0, result.claims.exp - nowSeconds);
+    const secureCookie = isSecureRequest(
+      req.headers,
+      (req.socket as { encrypted?: boolean }).encrypted,
+      trustProxy
+    );
+    res.setHeader(
+      "Set-Cookie",
+      buildAuthCookie(
+        authConfig.cookieName,
+        lookup.token,
+        expiresIn,
+        secureCookie
+      )
+    );
+  }
+  next();
 });
 
 app.get("/health", (_req, res) => {
@@ -140,6 +199,29 @@ wss.on("connection", (ws, req) => {
   ) {
     ws.close(1008, "HTTPS is required.");
     return;
+  }
+
+  if (authConfig.enabled) {
+    const lookup = getTokenFromRequest(
+      req.url,
+      req.headers,
+      authConfig.cookieName
+    );
+    if (!lookup.token) {
+      ws.close(1008, "Missing auth token.");
+      return;
+    }
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const result = verifyJwt(
+      lookup.token,
+      authConfig.publicKeys,
+      nowSeconds,
+      authConfig.clockSkewSeconds
+    );
+    if (!result.ok) {
+      ws.close(1008, "Invalid auth token.");
+      return;
+    }
   }
 
   ws.on("message", (raw) => {

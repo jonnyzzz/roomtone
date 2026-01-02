@@ -10,12 +10,22 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-}
       MAX_PARTICIPANTS: ${MAX_PARTICIPANTS:-10}
       WS_MAX_PAYLOAD: ${WS_MAX_PAYLOAD:-1048576}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_PUBLIC_KEYS: ${AUTH_PUBLIC_KEYS:-}
+      AUTH_PUBLIC_KEYS_FILE: ${AUTH_PUBLIC_KEYS_FILE:-}
+      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-roomtone_auth}
+      AUTH_CLOCK_SKEW_SECONDS: ${AUTH_CLOCK_SKEW_SECONDS:-30}
+      AUTH_HEALTH_TOKEN: ${AUTH_HEALTH_TOKEN:-}
     volumes:
       - ${STEVEDORE_DATA:-./.stevedore/data}:/var/lib/roomtone
       - ${STEVEDORE_LOGS:-./.stevedore/logs}:/var/log/roomtone
       - ${STEVEDORE_SHARED:-./.stevedore/shared}:/opt/roomtone/shared
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5670/health"]
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$AUTH_HEALTH_TOKEN\" ]; then wget -qO- \"http://localhost:5670/health?token=$AUTH_HEALTH_TOKEN\"; else wget -qO- http://localhost:5670/health; fi"
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
