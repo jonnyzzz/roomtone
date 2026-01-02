@@ -29,3 +29,24 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+  bot:
+    build: .
+    image: roomtone:latest
+    profiles: ["bot"]
+    command: ["node", "dist/bot/index.js"]
+    environment:
+      BOT_ENABLED: ${BOT_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS:-}
+      TELEGRAM_ALLOWED_CHATS: ${TELEGRAM_ALLOWED_CHATS:-}
+      BOT_COMMAND: ${BOT_COMMAND:-/invite}
+      BOT_PUBLIC_BASE_URL: ${BOT_PUBLIC_BASE_URL:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      ROOMTONE_SUBDOMAIN: ${ROOMTONE_SUBDOMAIN:-}
+      DYNDNS_DOMAIN: ${DYNDNS_DOMAIN:-}
+      DYNDNS_DOMAIN_FILE: ${DYNDNS_DOMAIN_FILE:-}
+      BOT_JWT_PRIVATE_KEY: ${BOT_JWT_PRIVATE_KEY:-}
+      BOT_JWT_PRIVATE_KEY_FILE: ${BOT_JWT_PRIVATE_KEY_FILE:-}
+      BOT_JWT_TTL_SECONDS: ${BOT_JWT_TTL_SECONDS:-300}
+      BOT_JWT_ISSUER: ${BOT_JWT_ISSUER:-roomtone-telegram}
+      TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-https://api.telegram.org}

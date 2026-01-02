@@ -7,8 +7,10 @@
     "dev": "concurrently \"npm:dev:server\" \"npm:dev:web\"",
     "dev:web": "vite",
     "dev:server": "tsx watch server/index.ts",
-    "build": "vite build && tsc -p tsconfig.server.json",
+    "dev:bot": "tsx watch bot/index.ts",
+    "build": "vite build && tsc -p tsconfig.server.json && tsc -p tsconfig.bot.json",
     "start": "node dist/server/index.js",
+    "start:bot": "node dist/bot/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test"

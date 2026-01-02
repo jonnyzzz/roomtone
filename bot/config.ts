@@ -1,0 +1,178 @@
+import crypto from "crypto";
+import fs from "fs";
+
+export type BotConfig = {
+  token: string;
+  allowedUsers: Set<number>;
+  allowedChats: Set<number> | null;
+  command: string;
+  publicBaseUrl: URL;
+  jwtPrivateKey: string;
+  jwtTtlSeconds: number;
+  jwtIssuer: string;
+  telegramApiBaseUrl: string;
+};
+
+const MIN_RSA_BITS = 2048;
+
+export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
+  if (env.BOT_ENABLED !== "true") {
+    return null;
+  }
+
+  const token = requireValue(env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN");
+  const allowedUsers = parseIdList(
+    requireValue(env.TELEGRAM_ALLOWED_USERS, "TELEGRAM_ALLOWED_USERS")
+  );
+  if (allowedUsers.size === 0) {
+    throw new Error("TELEGRAM_ALLOWED_USERS must include at least one user id.");
+  }
+
+  const allowedChats = parseOptionalIdList(env.TELEGRAM_ALLOWED_CHATS);
+  const commandRaw = env.BOT_COMMAND?.trim() || "/invite";
+  const command = commandRaw.startsWith("/") ? commandRaw : `/${commandRaw}`;
+
+  const baseUrlRaw = resolveBaseUrl(env);
+  if (!baseUrlRaw) {
+    throw new Error(
+      "BOT_PUBLIC_BASE_URL (or PUBLIC_BASE_URL / DYNDNS_DOMAIN + ROOMTONE_SUBDOMAIN) is required."
+    );
+  }
+  const publicBaseUrl = new URL(baseUrlRaw);
+
+  const jwtPrivateKey = loadPrivateKey(env);
+  const jwtTtlSeconds = parsePositiveInt(
+    env.BOT_JWT_TTL_SECONDS,
+    300,
+    "BOT_JWT_TTL_SECONDS"
+  );
+  const jwtIssuer = env.BOT_JWT_ISSUER?.trim() || "roomtone-telegram";
+  const telegramApiBaseUrl =
+    env.TELEGRAM_API_BASE_URL?.trim() || "https://api.telegram.org";
+
+  return {
+    token,
+    allowedUsers,
+    allowedChats,
+    command,
+    publicBaseUrl,
+    jwtPrivateKey,
+    jwtTtlSeconds,
+    jwtIssuer,
+    telegramApiBaseUrl
+  };
+}
+
+function parseIdList(raw: string): Set<number> {
+  const result = new Set<number>();
+  raw
+    .split(/[,\s]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .forEach((part) => {
+      const value = Number(part);
+      if (Number.isFinite(value)) {
+        result.add(value);
+      }
+    });
+  return result;
+}
+
+function parseOptionalIdList(raw?: string): Set<number> | null {
+  if (!raw || !raw.trim()) {
+    return null;
+  }
+  const parsed = parseIdList(raw);
+  return parsed.size > 0 ? parsed : null;
+}
+
+function requireValue(value: string | undefined, name: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error(`${name} is required.`);
+  }
+  return trimmed;
+}
+
+function parsePositiveInt(
+  raw: string | undefined,
+  fallback: number,
+  name: string
+): number {
+  if (raw === undefined) {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${name} must be a positive number.`);
+  }
+  return Math.floor(value);
+}
+
+function loadPrivateKey(env: NodeJS.ProcessEnv): string {
+  const inlineKey = env.BOT_JWT_PRIVATE_KEY?.trim();
+  const keyFile = env.BOT_JWT_PRIVATE_KEY_FILE?.trim();
+  let pem = inlineKey;
+
+  if (!pem && keyFile) {
+    pem = fs.readFileSync(keyFile, "utf8");
+  }
+
+  if (!pem) {
+    throw new Error(
+      "BOT_JWT_PRIVATE_KEY or BOT_JWT_PRIVATE_KEY_FILE must be set."
+    );
+  }
+
+  const key = validatePrivateKey(pem);
+  if (!key) {
+    throw new Error("BOT_JWT_PRIVATE_KEY must be a valid RSA key.");
+  }
+
+  return key;
+}
+
+function validatePrivateKey(pem: string): string | null {
+  try {
+    const key = crypto.createPrivateKey(pem);
+    if (key.asymmetricKeyType !== "rsa") {
+      return null;
+    }
+    const modulusLength = key.asymmetricKeyDetails?.modulusLength;
+    if (modulusLength && modulusLength < MIN_RSA_BITS) {
+      return null;
+    }
+    return key.export({ type: "pkcs8", format: "pem" }).toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolveBaseUrl(env: NodeJS.ProcessEnv): string | null {
+  const direct =
+    env.BOT_PUBLIC_BASE_URL?.trim() || env.PUBLIC_BASE_URL?.trim();
+  if (direct) {
+    return direct;
+  }
+
+  const subdomain = env.ROOMTONE_SUBDOMAIN?.trim();
+  const domain =
+    env.DYNDNS_DOMAIN?.trim() ||
+    readOptionalFile(env.DYNDNS_DOMAIN_FILE?.trim());
+  if (subdomain && domain) {
+    return `https://${subdomain}.${domain}`;
+  }
+
+  return null;
+}
+
+function readOptionalFile(pathValue?: string): string | null {
+  if (!pathValue) {
+    return null;
+  }
+  try {
+    return fs.readFileSync(pathValue, "utf8").trim();
+  } catch {
+    return null;
+  }
+}
