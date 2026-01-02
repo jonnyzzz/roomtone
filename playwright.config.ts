@@ -7,7 +7,7 @@ export default defineConfig({
     timeout: 15000
   },
   use: {
-    baseURL: "http://localhost:5670",
+    baseURL: "http://localhost:5672",
     headless: true,
     launchOptions: {
       args: [
@@ -18,11 +18,12 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run start",
-    url: "http://localhost:5670/health",
+    url: "http://localhost:5672/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
     env: {
-      PORT: "5670"
+      PORT: "5672",
+      ALLOW_INSECURE_HTTP: "true"
     }
   }
 });
