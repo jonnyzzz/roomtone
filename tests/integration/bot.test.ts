@@ -14,16 +14,24 @@ type SentMessage = {
   chat_id: number;
   text: string;
   parse_mode?: string;
+  message_id: number;
+};
+
+type DeletedMessage = {
+  chat_id: number;
+  message_id: number;
 };
 
 describe("Telegram bot integration", () => {
   let baseUrl = "";
   let server: ReturnType<typeof createServer> | null = null;
   const sentMessages: SentMessage[] = [];
+  const deletedMessages: DeletedMessage[] = [];
   let updates: TelegramUpdate[] = [];
   let updatesServed = false;
   let participantSnapshots: { id: string; name: string }[][] = [];
   let participantIndex = 0;
+  let nextMessageId = 1000;
 
   beforeAll(async () => {
     server = createServer(async (req, res) => {
@@ -41,13 +49,33 @@ describe("Telegram bot integration", () => {
       }
       if (url.includes("/sendMessage")) {
         const payload = body ? JSON.parse(body) : {};
+        const messageId = nextMessageId++;
         sentMessages.push({
           chat_id: payload.chat_id,
           text: payload.text,
-          parse_mode: payload.parse_mode
+          parse_mode: payload.parse_mode,
+          message_id: messageId
         });
         res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ ok: true, result: {} }));
+        res.end(
+          JSON.stringify({
+            ok: true,
+            result: {
+              message_id: messageId,
+              chat: { id: payload.chat_id, type: "private" }
+            }
+          })
+        );
+        return;
+      }
+      if (url.includes("/deleteMessage")) {
+        const payload = body ? JSON.parse(body) : {};
+        deletedMessages.push({
+          chat_id: payload.chat_id,
+          message_id: payload.message_id
+        });
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, result: true }));
         return;
       }
       if (url.includes("/participants")) {
@@ -138,6 +166,8 @@ describe("Telegram bot integration", () => {
     ];
     updatesServed = false;
     sentMessages.length = 0;
+    deletedMessages.length = 0;
+    nextMessageId = 1000;
 
     const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-bot-"));
     const stateFile = path.join(stateDir, "bot-access.json");
@@ -182,6 +212,60 @@ describe("Telegram bot integration", () => {
     }
   });
 
+  it("removes expired invite links", async () => {
+    const { privateKey } = crypto.generateKeyPairSync("rsa", {
+      modulusLength: 2048
+    });
+    const privatePem = privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+
+    updates = [
+      {
+        update_id: 20,
+        message: {
+          message_id: 20,
+          text: "/invite",
+          from: { id: 7, first_name: "Eve" },
+          chat: { id: 101, type: "private" }
+        }
+      }
+    ];
+    updatesServed = false;
+    sentMessages.length = 0;
+    deletedMessages.length = 0;
+    nextMessageId = 1000;
+
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-bot-"));
+    const stateFile = path.join(stateDir, "bot-access.json");
+    const config = loadBotConfig({
+      BOT_ENABLED: "true",
+      TELEGRAM_BOT_TOKEN: "test-token",
+      TELEGRAM_ALLOWED_USERS: "7",
+      TELEGRAM_BOT_USERNAME: "roomtone_bot",
+      PUBLIC_BASE_URL: "https://roomtone.example",
+      BOT_JWT_PRIVATE_KEY: privatePem,
+      BOT_JWT_TTL_SECONDS: "1",
+      TELEGRAM_API_BASE_URL: baseUrl,
+      BOT_STATE_FILE: stateFile
+    } as NodeJS.ProcessEnv);
+
+    expect(config).not.toBeNull();
+    const api = new TelegramApi(config!.token, config!.telegramApiBaseUrl);
+    const bot = new ConnectionManagerBot(config!, api);
+
+    await bot.pollOnce();
+
+    expect(sentMessages).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(deletedMessages).toHaveLength(1);
+    expect(deletedMessages[0]).toEqual({
+      chat_id: sentMessages[0].chat_id,
+      message_id: sentMessages[0].message_id
+    });
+    bot.stop();
+  });
+
   it("responds with help for unknown DMs and direct mentions", async () => {
     updates = [
       {
@@ -223,6 +307,8 @@ describe("Telegram bot integration", () => {
     ];
     updatesServed = false;
     sentMessages.length = 0;
+    deletedMessages.length = 0;
+    nextMessageId = 1000;
 
     const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-bot-"));
     const stateFile = path.join(stateDir, "bot-access.json");
@@ -266,6 +352,8 @@ describe("Telegram bot integration", () => {
     ];
     participantIndex = 0;
     sentMessages.length = 0;
+    deletedMessages.length = 0;
+    nextMessageId = 1000;
 
     const keyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = keyPair.privateKey

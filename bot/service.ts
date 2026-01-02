@@ -18,6 +18,7 @@ export class ConnectionManagerBot {
   private knownParticipants = new Map<string, string>();
   private hasParticipantBaseline = false;
   private serviceToken: { token: string; exp: number } | null = null;
+  private deleteTimers = new Set<NodeJS.Timeout>();
 
   constructor(
     private readonly config: BotConfig,
@@ -47,6 +48,10 @@ export class ConnectionManagerBot {
 
   stop(): void {
     this.running = false;
+    for (const timer of this.deleteTimers) {
+      clearTimeout(timer);
+    }
+    this.deleteTimers.clear();
   }
 
   async pollOnce(): Promise<number> {
@@ -173,7 +178,10 @@ export class ConnectionManagerBot {
 
     const minutes = Math.ceil(this.config.jwtTtlSeconds / 60);
     const reply = buildInviteMessage(inviteUrl.toString(), minutes);
-    await this.api.sendMessage(message.chat.id, reply, { parseMode: "HTML" });
+    const sent = await this.api.sendMessage(message.chat.id, reply, {
+      parseMode: "HTML"
+    });
+    this.scheduleDelete(message.chat.id, sent.message_id);
   }
 
   private async handleAdminCommand(
@@ -286,7 +294,37 @@ export class ConnectionManagerBot {
     inviteUrl.searchParams.set("token", token);
     const message = buildJoinNotification(name, inviteUrl.toString());
     for (const chatId of this.config.notifyChats) {
-      await this.api.sendMessage(chatId, message, { parseMode: "HTML" });
+      const sent = await this.api.sendMessage(chatId, message, {
+        parseMode: "HTML"
+      });
+      this.scheduleDelete(chatId, sent.message_id);
+    }
+  }
+
+  private scheduleDelete(chatId: number, messageId: number): void {
+    const ttlSeconds = this.config.jwtTtlSeconds;
+    if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+      return;
+    }
+    const delayMs = ttlSeconds * 1000;
+    const timer = setTimeout(() => {
+      this.deleteTimers.delete(timer);
+      void this.deleteInviteMessage(chatId, messageId);
+    }, delayMs);
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
+    this.deleteTimers.add(timer);
+  }
+
+  private async deleteInviteMessage(
+    chatId: number,
+    messageId: number
+  ): Promise<void> {
+    try {
+      await this.api.deleteMessage(chatId, messageId);
+    } catch (error) {
+      console.warn("Failed to delete invite message:", error);
     }
   }
 }

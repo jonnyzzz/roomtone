@@ -65,6 +65,10 @@ in the same chat with a unique invite link signed for your name.
 Tokens include your display name and expire after the configured TTL (default
 5 minutes).
 
+The bot deletes invite messages after the TTL expires. In group chats, ensure
+the bot has permission to delete messages (admin or delete rights) so cleanup
+can succeed.
+
 If you send an unknown message in a DM, or mention the bot in a group chat, it
 responds with a short help message. `/start` also triggers the help response.
 Set `TELEGRAM_BOT_USERNAME` so the bot can detect direct mentions in groups.

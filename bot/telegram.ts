@@ -58,7 +58,7 @@ export class TelegramApi {
     chatId: number,
     text: string,
     options?: { parseMode?: "HTML" | "MarkdownV2"; disablePreview?: boolean }
-  ): Promise<void> {
+  ): Promise<TelegramMessage> {
     const payload = {
       chat_id: chatId,
       text,
@@ -72,9 +72,29 @@ export class TelegramApi {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload)
     });
-    const data = (await response.json()) as TelegramResponse<unknown>;
+    const data = (await response.json()) as TelegramResponse<TelegramMessage>;
     if (!data.ok) {
       throw new Error(data.description || "Telegram sendMessage failed.");
+    }
+    if (!data.result) {
+      throw new Error("Telegram sendMessage returned empty result.");
+    }
+    return data.result;
+  }
+
+  async deleteMessage(chatId: number, messageId: number): Promise<void> {
+    const payload = {
+      chat_id: chatId,
+      message_id: messageId
+    };
+    const response = await fetch(this.apiUrl("deleteMessage"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = (await response.json()) as TelegramResponse<boolean>;
+    if (!data.ok) {
+      throw new Error(data.description || "Telegram deleteMessage failed.");
     }
   }
 
