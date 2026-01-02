@@ -530,6 +530,16 @@ export default function App() {
       index={index + 1}
     />
   ));
+  const showLocalInGrid = participants.length === 0;
+  const localTile = (
+    <VideoTile
+      stream={localStream ?? undefined}
+      name={name}
+      muted={true}
+      isLocal={true}
+      index={0}
+    />
+  );
 
   return (
     <div className="app">
@@ -626,15 +636,16 @@ export default function App() {
             permission={notificationPermission}
             onRequest={requestNotifications}
           />
-          <div className="video-grid">
-            <VideoTile
-              stream={localStream ?? undefined}
-              name={name}
-              muted={true}
-              isLocal={true}
-              index={0}
-            />
-            {peerTiles}
+          <div className="call__stage">
+            <div
+              className={`video-grid ${showLocalInGrid ? "video-grid--solo" : ""}`}
+            >
+              {showLocalInGrid ? localTile : null}
+              {peerTiles}
+            </div>
+            {!showLocalInGrid ? (
+              <div className="local-preview">{localTile}</div>
+            ) : null}
           </div>
         </main>
       )}

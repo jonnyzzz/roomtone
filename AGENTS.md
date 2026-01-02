@@ -46,3 +46,4 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - Keep server messages small JSON payloads.
 - Prefer deterministic cleanup on disconnect (close peer connections, stop tracks).
 - UI should remain mobile friendly and avoid complex flows.
+- Versioning: update `VERSION` and `CHANGES.md` when shipping notable changes.
