@@ -78,7 +78,7 @@ Set `TELEGRAM_BOT_USERNAME` so the bot can detect direct mentions in groups.
 If `TELEGRAM_NOTIFY_CHATS` is set (or `TELEGRAM_ALLOWED_CHATS` is set and
 `TELEGRAM_NOTIFY_CHATS` is empty), the bot polls Roomtone for new participants
 and posts a short notification with a join link. The link is shown as a compact
-anchor (`Join Roomtone`) rather than the full URL.
+anchor (`Join the Call...`) rather than the full URL.
 
 ## Allowlist Persistence
 

@@ -14,6 +14,8 @@ present.
   - Cookie (default `roomtone_auth`)
 - When a token arrives via query or header, the server sets an HttpOnly cookie
   so subsequent static asset requests work without extra params.
+- Invalid tokens clear the auth cookie and return a readable HTML response
+  when the client accepts HTML.
 
 ## Required Claims
 

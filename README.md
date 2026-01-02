@@ -8,6 +8,10 @@ Roomtone is a single-room audio and video calling app built on WebRTC and WebSoc
 - WebRTC audio and video with WebSocket signaling.
 - Clean, mobile-friendly UI in React + TypeScript.
 - Docker-first deployment with a single container.
+- Browser notifications when new participants join (opt-in prompt).
+- Optional Telegram bot with expiring invite links and join notifications.
+- Russian UI locale when the browser language starts with `ru`.
+- Versioned releases tracked in `VERSION` and `CHANGES.md`.
 - Built-in integration tests (Playwright) and unit tests (Vitest).
 
 ## Quickstart (Docker)
@@ -141,13 +145,15 @@ https://your-host.example/?token=JWT_HERE
 ```
 
 When a token arrives via query or header, the server sets a cookie so static
-assets load normally. See `docs/AUTH.md` for the full specification and token
-generation steps.
+assets load normally. Invalid tokens clear the cookie and return a readable
+HTML response in browsers. See `docs/AUTH.md` for the full specification and
+token generation steps.
 
 ## Telegram Connection Bot (Optional)
 
 Roomtone ships an optional Telegram bot that generates short-lived invite links.
 It uses an allowlist of Telegram user IDs and signs JWTs with a private RSA key.
+Invite messages are deleted after the TTL expires.
 
 Configuration:
 
