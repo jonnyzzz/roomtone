@@ -55,17 +55,35 @@ export class ConnectionManagerBot {
     if (!message?.text) {
       return;
     }
+    const isPrivate = message.chat.type === "private";
+    const mention = isDirectMention(message.text, this.config.botUsername);
     const parsed = parseCommand(message.text);
-    if (!parsed) {
-      return;
-    }
     const sender = message.from;
     if (!sender) {
       return;
     }
 
+    if (!parsed) {
+      if (isPrivate || mention) {
+        await this.api.sendMessage(
+          message.chat.id,
+          buildHelpMessage(this.config)
+        );
+      }
+      return;
+    }
+
+    if (!isCommandForBot(parsed.mention, this.config.botUsername)) {
+      return;
+    }
+
     const command = parsed.command;
     const args = parsed.args;
+
+    if (command === "/start") {
+      await this.api.sendMessage(message.chat.id, buildHelpMessage(this.config));
+      return;
+    }
 
     if (command === "/whoami") {
       await sendWhoAmI(this.api, message.chat, sender);
@@ -78,6 +96,12 @@ export class ConnectionManagerBot {
     }
 
     if (command !== this.config.command) {
+      if (isPrivate || parsed.mention) {
+        await this.api.sendMessage(
+          message.chat.id,
+          buildHelpMessage(this.config)
+        );
+      }
       return;
     }
 
@@ -166,7 +190,9 @@ export class ConnectionManagerBot {
   }
 }
 
-function parseCommand(text: string): { command: string; args: string[] } | null {
+function parseCommand(
+  text: string
+): { command: string; args: string[]; mention?: string } | null {
   const tokens = text.trim().split(/\s+/);
   if (tokens.length === 0) {
     return null;
@@ -175,8 +201,10 @@ function parseCommand(text: string): { command: string; args: string[] } | null 
   if (!commandToken.startsWith("/")) {
     return null;
   }
-  const command = commandToken.split("@")[0];
-  return { command, args: tokens.slice(1) };
+  const [commandPart, mentionPart] = commandToken.split("@");
+  const command = commandPart.toLowerCase();
+  const mention = mentionPart ? mentionPart.toLowerCase() : undefined;
+  return { command, args: tokens.slice(1), mention };
 }
 
 function formatName(user: { first_name: string; last_name?: string; username?: string; id: number }): string {
@@ -185,6 +213,27 @@ function formatName(user: { first_name: string; last_name?: string; username?: s
     user.username ||
     String(user.id);
   return raw.replace(/\s+/g, " ").trim().slice(0, 40);
+}
+
+function isCommandForBot(
+  mention: string | undefined,
+  botUsername: string | null
+): boolean {
+  if (!mention) {
+    return true;
+  }
+  if (!botUsername) {
+    return false;
+  }
+  return mention === botUsername;
+}
+
+function isDirectMention(text: string, botUsername: string | null): boolean {
+  if (!botUsername) {
+    return false;
+  }
+  const normalized = `@${botUsername}`.toLowerCase();
+  return text.toLowerCase().includes(normalized);
 }
 
 function parseNumericArg(value: string | undefined): number | null {
@@ -206,6 +255,20 @@ function isAdminCommand(command: string): boolean {
     command === "/deny_chat" ||
     command === "/list_access"
   );
+}
+
+function buildHelpMessage(config: BotConfig): string {
+  const invite = config.command;
+  return [
+    "Roomtone bot commands:",
+    `${invite} - get a 5-minute invite link`,
+    "/whoami - show your Telegram user/chat IDs",
+    "/allow_user <id> - allow a user (admin)",
+    "/deny_user <id> - remove a user (admin)",
+    "/allow_chat <id> - allow a group chat (admin)",
+    "/deny_chat <id> - remove a group chat (admin)",
+    "/list_access - show allowlist (admin)"
+  ].join("\n");
 }
 
 async function sendWhoAmI(

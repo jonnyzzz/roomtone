@@ -7,6 +7,7 @@ export type BotConfig = {
   allowedChats: Set<number> | null;
   adminUsers: Set<number>;
   adminUsernames: Set<string>;
+  botUsername: string | null;
   command: string;
   publicBaseUrl: URL;
   jwtPrivateKey: string;
@@ -36,8 +37,10 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
   }
 
   const allowedChats = parseOptionalIdList(env.TELEGRAM_ALLOWED_CHATS);
+  const botUsername = normalizeUsername(env.TELEGRAM_BOT_USERNAME);
   const commandRaw = env.BOT_COMMAND?.trim() || "/invite";
-  const command = commandRaw.startsWith("/") ? commandRaw : `/${commandRaw}`;
+  const command = (commandRaw.startsWith("/") ? commandRaw : `/${commandRaw}`)
+    .toLowerCase();
 
   const baseUrlRaw = resolveBaseUrl(env);
   if (!baseUrlRaw) {
@@ -65,6 +68,7 @@ export function loadBotConfig(env: NodeJS.ProcessEnv): BotConfig | null {
     allowedChats,
     adminUsers,
     adminUsernames,
+    botUsername,
     command,
     publicBaseUrl,
     jwtPrivateKey,
@@ -103,6 +107,14 @@ function parseUsernameList(raw: string): Set<string> {
       }
     });
   return result;
+}
+
+function normalizeUsername(raw?: string): string | null {
+  if (!raw) {
+    return null;
+  }
+  const normalized = raw.trim().replace(/^@/, "").toLowerCase();
+  return normalized ? normalized : null;
 }
 
 function parseOptionalIdList(raw?: string): Set<number> | null {

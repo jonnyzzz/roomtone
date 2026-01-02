@@ -133,6 +133,7 @@ describe("Telegram bot integration", () => {
       TELEGRAM_ALLOWED_USERS: "42",
       TELEGRAM_ADMIN_USERS: "42",
       TELEGRAM_ALLOWED_CHATS: "300",
+      TELEGRAM_BOT_USERNAME: "roomtone_bot",
       BOT_PUBLIC_BASE_URL: "https://roomtone.example",
       BOT_JWT_PRIVATE_KEY: privatePem,
       BOT_JWT_TTL_SECONDS: "300",
@@ -165,6 +166,76 @@ describe("Telegram bot integration", () => {
       expect(result.claims?.name).toBe("Eve");
       expect(typeof result.claims?.jti).toBe("string");
     }
+  });
+
+  it("responds with help for unknown DMs and direct mentions", async () => {
+    updates = [
+      {
+        update_id: 10,
+        message: {
+          message_id: 10,
+          text: "hello bot",
+          from: { id: 42, first_name: "Ada", last_name: "Lovelace" },
+          chat: { id: 400, type: "private" }
+        }
+      },
+      {
+        update_id: 11,
+        message: {
+          message_id: 11,
+          text: "/start",
+          from: { id: 42, first_name: "Ada", last_name: "Lovelace" },
+          chat: { id: 400, type: "private" }
+        }
+      },
+      {
+        update_id: 12,
+        message: {
+          message_id: 12,
+          text: "hello @roomtone_bot",
+          from: { id: 42, first_name: "Ada", last_name: "Lovelace" },
+          chat: { id: 500, type: "group", title: "Roomtone" }
+        }
+      },
+      {
+        update_id: 13,
+        message: {
+          message_id: 13,
+          text: "hello everyone",
+          from: { id: 42, first_name: "Ada", last_name: "Lovelace" },
+          chat: { id: 500, type: "group", title: "Roomtone" }
+        }
+      }
+    ];
+    updatesServed = false;
+    sentMessages.length = 0;
+
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-bot-"));
+    const stateFile = path.join(stateDir, "bot-access.json");
+    const config = loadBotConfig({
+      BOT_ENABLED: "true",
+      TELEGRAM_BOT_TOKEN: "test-token",
+      TELEGRAM_ADMIN_USERS: "42",
+      TELEGRAM_BOT_USERNAME: "roomtone_bot",
+      BOT_PUBLIC_BASE_URL: "https://roomtone.example",
+      BOT_JWT_PRIVATE_KEY: crypto
+        .generateKeyPairSync("rsa", { modulusLength: 2048 })
+        .privateKey.export({ type: "pkcs8", format: "pem" })
+        .toString(),
+      TELEGRAM_API_BASE_URL: baseUrl,
+      BOT_STATE_FILE: stateFile
+    } as NodeJS.ProcessEnv);
+
+    expect(config).not.toBeNull();
+    const api = new TelegramApi(config!.token, config!.telegramApiBaseUrl);
+    const bot = new ConnectionManagerBot(config!, api);
+
+    await bot.pollOnce();
+
+    expect(sentMessages).toHaveLength(3);
+    sentMessages.forEach((message) => {
+      expect(message.text).toContain("Roomtone bot commands");
+    });
   });
 });
 
