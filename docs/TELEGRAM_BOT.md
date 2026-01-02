@@ -27,6 +27,7 @@ openssl rsa -in roomtone.key -pubout -out roomtone.pub
 | `TELEGRAM_ALLOWED_USERS` | yes | Comma or space separated Telegram user IDs |
 | `TELEGRAM_ADMIN_USERS` | no | Admin Telegram user IDs |
 | `TELEGRAM_ADMIN_USERNAMES` | no | Admin usernames (less stable than IDs) |
+| `TELEGRAM_BOT_USERNAME` | no | Bot username (for mention detection) |
 | `BOT_PUBLIC_BASE_URL` | yes | Base URL for invite links |
 | `BOT_JWT_PRIVATE_KEY` or `BOT_JWT_PRIVATE_KEY_FILE` | yes | RSA private key |
 | `BOT_JWT_TTL_SECONDS` | no | Token TTL (default 300s) |
@@ -60,6 +61,10 @@ in the same chat with a unique invite link signed for your name.
 
 Tokens include your display name and expire after the configured TTL (default
 5 minutes).
+
+If you send an unknown message in a DM, or mention the bot in a group chat, it
+responds with a short help message. `/start` also triggers the help response.
+Set `TELEGRAM_BOT_USERNAME` so the bot can detect direct mentions in groups.
 
 ## Allowlist Persistence
 

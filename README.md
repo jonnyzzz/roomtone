@@ -145,6 +145,7 @@ Configuration:
 | `TELEGRAM_ALLOWED_CHATS` | Optional allowed chat IDs (CSV/space) | empty |
 | `TELEGRAM_ADMIN_USERS` | Admin Telegram user IDs (CSV/space) | empty |
 | `TELEGRAM_ADMIN_USERNAMES` | Admin usernames (CSV/space) | empty |
+| `TELEGRAM_BOT_USERNAME` | Bot username for mention detection | empty |
 | `BOT_COMMAND` | Command trigger (DM or group) | `/invite` |
 | `BOT_PUBLIC_BASE_URL` | Base URL for invite links | empty |
 | `BOT_JWT_PRIVATE_KEY` | RSA private key PEM for signing | empty |
