@@ -146,14 +146,17 @@ Configuration:
 | `TELEGRAM_ADMIN_USERS` | Admin Telegram user IDs (CSV/space) | empty |
 | `TELEGRAM_ADMIN_USERNAMES` | Admin usernames (CSV/space) | empty |
 | `TELEGRAM_BOT_USERNAME` | Bot username for mention detection | empty |
+| `TELEGRAM_NOTIFY_CHATS` | Chat IDs to receive join notifications | empty |
 | `BOT_COMMAND` | Command trigger (DM or group) | `/invite` |
 | `BOT_PUBLIC_BASE_URL` | Base URL for invite links | empty |
+| `BOT_SERVER_BASE_URL` | Roomtone base URL for participant polling | empty |
 | `BOT_JWT_PRIVATE_KEY` | RSA private key PEM for signing | empty |
 | `BOT_JWT_PRIVATE_KEY_FILE` | RSA private key file path | empty |
 | `BOT_JWT_TTL_SECONDS` | Invite lifetime in seconds | `300` |
 | `BOT_JWT_ISSUER` | JWT issuer claim | `roomtone-telegram` |
 | `TELEGRAM_API_BASE_URL` | Telegram API base (tests) | `https://api.telegram.org` |
 | `BOT_STATE_FILE` | Persistent allowlist file | `/var/lib/roomtone/bot-access.json` |
+| `BOT_NOTIFY_POLL_SECONDS` | Poll interval for join notifications | `10` |
 
 Run it with Docker Compose:
 

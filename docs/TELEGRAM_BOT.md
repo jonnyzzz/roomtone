@@ -28,12 +28,15 @@ openssl rsa -in roomtone.key -pubout -out roomtone.pub
 | `TELEGRAM_ADMIN_USERS` | no | Admin Telegram user IDs |
 | `TELEGRAM_ADMIN_USERNAMES` | no | Admin usernames (less stable than IDs) |
 | `TELEGRAM_BOT_USERNAME` | no | Bot username (for mention detection) |
+| `TELEGRAM_NOTIFY_CHATS` | no | Chat IDs that receive join notifications |
 | `BOT_PUBLIC_BASE_URL` | yes | Base URL for invite links |
+| `BOT_SERVER_BASE_URL` | no | Roomtone base URL for polling participants |
 | `BOT_JWT_PRIVATE_KEY` or `BOT_JWT_PRIVATE_KEY_FILE` | yes | RSA private key |
 | `BOT_JWT_TTL_SECONDS` | no | Token TTL (default 300s) |
 | `BOT_COMMAND` | no | Command name (default `/invite`) |
 | `TELEGRAM_ALLOWED_CHATS` | no | Restrict links to specific chat IDs |
 | `BOT_STATE_FILE` | no | Allowlist persistence file |
+| `BOT_NOTIFY_POLL_SECONDS` | no | Poll interval for join notifications |
 
 ## Using with Stevedore + Stevedore DynDNS
 
@@ -65,6 +68,13 @@ Tokens include your display name and expire after the configured TTL (default
 If you send an unknown message in a DM, or mention the bot in a group chat, it
 responds with a short help message. `/start` also triggers the help response.
 Set `TELEGRAM_BOT_USERNAME` so the bot can detect direct mentions in groups.
+
+## Join Notifications
+
+If `TELEGRAM_NOTIFY_CHATS` is set (or `TELEGRAM_ALLOWED_CHATS` is set and
+`TELEGRAM_NOTIFY_CHATS` is empty), the bot polls Roomtone for new participants
+and posts a short notification with a join link. The link is shown as a compact
+anchor (`Join Roomtone`) rather than the full URL.
 
 ## Allowlist Persistence
 

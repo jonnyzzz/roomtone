@@ -42,8 +42,10 @@ services:
       TELEGRAM_ADMIN_USERS: ${TELEGRAM_ADMIN_USERS:-}
       TELEGRAM_ADMIN_USERNAMES: ${TELEGRAM_ADMIN_USERNAMES:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_NOTIFY_CHATS: ${TELEGRAM_NOTIFY_CHATS:-}
       BOT_COMMAND: ${BOT_COMMAND:-/invite}
       BOT_PUBLIC_BASE_URL: ${BOT_PUBLIC_BASE_URL:-}
+      BOT_SERVER_BASE_URL: ${BOT_SERVER_BASE_URL:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       ROOMTONE_SUBDOMAIN: ${ROOMTONE_SUBDOMAIN:-}
       DYNDNS_DOMAIN: ${DYNDNS_DOMAIN:-}
@@ -54,6 +56,7 @@ services:
       BOT_JWT_ISSUER: ${BOT_JWT_ISSUER:-roomtone-telegram}
       TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-https://api.telegram.org}
       BOT_STATE_FILE: ${BOT_STATE_FILE:-/var/lib/roomtone/bot-access.json}
+      BOT_NOTIFY_POLL_SECONDS: ${BOT_NOTIFY_POLL_SECONDS:-10}
     volumes:
       - ${STEVEDORE_DATA:-./.stevedore/data}:/var/lib/roomtone
       - ${STEVEDORE_LOGS:-./.stevedore/logs}:/var/log/roomtone
