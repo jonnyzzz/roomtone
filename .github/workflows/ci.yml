@@ -29,3 +29,6 @@ jobs:
 
       - name: E2E tests
         run: npm run test:e2e
+
+      - name: Auth pentest (OWASP ZAP)
+        run: npm run pentest:auth

@@ -8,3 +8,4 @@ playwright-report
 .vite
 .idea/
 .stevedore/
+/pentest/

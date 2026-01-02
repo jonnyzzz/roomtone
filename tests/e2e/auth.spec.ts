@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, request as playwrightRequest } from "@playwright/test";
 import crypto from "crypto";
 import { spawn } from "child_process";
 import { once } from "events";
@@ -107,7 +107,7 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
   expect(authedRoot.status()).toBe(200);
   const authedHtml = await authedRoot.text();
   const assetPath = extractFirstAssetPath(authedHtml);
-  const unauthRequest = await request.newContext({ baseURL: BASE_URL });
+  const unauthRequest = await playwrightRequest.newContext({ baseURL: BASE_URL });
   const unauthAsset = await unauthRequest.get(assetPath, {
     failOnStatusCode: false
   });
@@ -140,7 +140,7 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
 });
 
 function extractFirstAssetPath(html: string): string {
-  const match = html.match(/(?:src|href)=\"(\\/assets\\/[^\"\\s]+)\"/);
+  const match = html.match(/(?:src|href)="(\/assets\/[^"\s]+)"/);
   if (!match) {
     throw new Error("No asset reference found in HTML.");
   }
