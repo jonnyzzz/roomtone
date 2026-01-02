@@ -32,6 +32,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - HTTPS is required for non-localhost traffic; terminate TLS in front of the service and set `TRUST_PROXY=true`.
 - `MAX_PARTICIPANTS` caps the room size (default 10).
 - `WS_MAX_PAYLOAD` limits WebSocket message size in bytes.
+- When `AUTH_ENABLED=true`, every HTTP request and WebSocket handshake requires a signed JWT token (`docs/AUTH.md`).
 - Stevedore deployments mount `STEVEDORE_DATA`, `STEVEDORE_LOGS`, and `STEVEDORE_SHARED` volumes.
 
 ## Implementation Conventions

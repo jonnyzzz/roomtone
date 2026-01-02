@@ -91,6 +91,25 @@ These environment variables control runtime behavior:
 | `TRUST_PROXY` | Trust `X-Forwarded-*` headers from a reverse proxy | `false` |
 | `MAX_PARTICIPANTS` | Maximum participants in the room | `10` |
 | `WS_MAX_PAYLOAD` | Max WebSocket message size in bytes | `1048576` |
+| `AUTH_ENABLED` | Require signed auth tokens for all requests | `false` |
+| `AUTH_PUBLIC_KEYS` | PEM public keys (supports multiple) | empty |
+| `AUTH_PUBLIC_KEYS_FILE` | Path to PEM public keys | empty |
+| `AUTH_COOKIE_NAME` | Cookie name for auth token | `roomtone_auth` |
+| `AUTH_CLOCK_SKEW_SECONDS` | Allowed clock skew for `exp` | `30` |
+| `AUTH_HEALTH_TOKEN` | JWT used by Docker healthcheck | empty |
+
+## Authentication (JWT)
+
+Roomtone can require signed JWT tokens for every HTTP request and WebSocket
+handshake. Use a presigned URL like:
+
+```
+https://your-host.example/?token=JWT_HERE
+```
+
+When a token arrives via query or header, the server sets a cookie so static
+assets load normally. See `docs/AUTH.md` for the full specification and token
+generation steps.
 
 ## HTTPS-Only Transport
 
