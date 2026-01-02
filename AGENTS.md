@@ -6,8 +6,10 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 
 - Install deps: `npm install`
 - Dev (server + web): `npm run dev`
+- Dev (bot only): `npm run dev:bot`
 - Build: `npm run build`
 - Start production server: `npm run start`
+- Start bot: `npm run start:bot`
 - Unit tests: `npm run test`
 - E2E tests (Playwright): `npm run test:e2e`
 - Docker: `docker compose up --build`
@@ -25,6 +27,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - One shared room for all participants.
 - WebSocket signaling at `/ws`.
 - Client uses host ICE candidates only (no STUN/TURN).
+- Optional Telegram bot issues short-lived invite links (see `docs/TELEGRAM_BOT.md`).
 
 ## Deployment Notes
 
@@ -33,6 +36,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - `MAX_PARTICIPANTS` caps the room size (default 10).
 - `WS_MAX_PAYLOAD` limits WebSocket message size in bytes.
 - When `AUTH_ENABLED=true`, every HTTP request and WebSocket handshake requires a signed JWT token (`docs/AUTH.md`).
+- The Telegram bot requires `BOT_ENABLED=true`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, and `BOT_PUBLIC_BASE_URL`.
 - Stevedore deployments mount `STEVEDORE_DATA`, `STEVEDORE_LOGS`, and `STEVEDORE_SHARED` volumes.
 
 ## Implementation Conventions

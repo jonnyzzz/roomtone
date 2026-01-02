@@ -60,6 +60,24 @@ Notes:
 - For HTTPS-only traffic behind a reverse proxy, set `TRUST_PROXY=true` and keep `ALLOW_INSECURE_HTTP=false`.
 - Stevedore injects `STEVEDORE_DATA`, `STEVEDORE_LOGS`, and `STEVEDORE_SHARED` for volumes. Local `docker compose` uses `.stevedore/` fallbacks.
 
+## Stevedore DynDNS Integration
+
+If you run [stevedore-dyndns](https://github.com/jonnyzzz/stevedore-dyndns), register
+Roomtone as a subdomain and point the bot to the external URL:
+
+```bash
+/opt/stevedore/deployments/dyndns/scripts/register-service.sh roomtone localhost:5670 --websocket
+```
+
+Then set:
+
+```
+BOT_PUBLIC_BASE_URL=https://roomtone.your-domain.example
+```
+
+Roomtone also supports deriving the URL from `ROOMTONE_SUBDOMAIN` and
+`DYNDNS_DOMAIN` (or `DYNDNS_DOMAIN_FILE`).
+
 ## Local Development
 
 Install dependencies:
@@ -97,6 +115,7 @@ These environment variables control runtime behavior:
 | `AUTH_COOKIE_NAME` | Cookie name for auth token | `roomtone_auth` |
 | `AUTH_CLOCK_SKEW_SECONDS` | Allowed clock skew for `exp` | `30` |
 | `AUTH_HEALTH_TOKEN` | JWT used by Docker healthcheck | empty |
+| `PUBLIC_BASE_URL` | Base URL for invite links (used by bot) | empty |
 
 ## Authentication (JWT)
 
@@ -110,6 +129,35 @@ https://your-host.example/?token=JWT_HERE
 When a token arrives via query or header, the server sets a cookie so static
 assets load normally. See `docs/AUTH.md` for the full specification and token
 generation steps.
+
+## Telegram Connection Bot (Optional)
+
+Roomtone ships an optional Telegram bot that generates short-lived invite links.
+It uses an allowlist of Telegram user IDs and signs JWTs with a private RSA key.
+
+Configuration:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `BOT_ENABLED` | Enable the bot process | `false` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | empty |
+| `TELEGRAM_ALLOWED_USERS` | Allowed Telegram user IDs (CSV/space) | empty |
+| `TELEGRAM_ALLOWED_CHATS` | Optional allowed chat IDs (CSV/space) | empty |
+| `BOT_COMMAND` | Command trigger (DM or group) | `/invite` |
+| `BOT_PUBLIC_BASE_URL` | Base URL for invite links | empty |
+| `BOT_JWT_PRIVATE_KEY` | RSA private key PEM for signing | empty |
+| `BOT_JWT_PRIVATE_KEY_FILE` | RSA private key file path | empty |
+| `BOT_JWT_TTL_SECONDS` | Invite lifetime in seconds | `300` |
+| `BOT_JWT_ISSUER` | JWT issuer claim | `roomtone-telegram` |
+| `TELEGRAM_API_BASE_URL` | Telegram API base (tests) | `https://api.telegram.org` |
+
+Run it with Docker Compose:
+
+```bash
+docker compose --profile bot up --build
+```
+
+See `docs/TELEGRAM_BOT.md` for key generation, allowlist setup, and examples.
 
 ## HTTPS-Only Transport
 
@@ -125,7 +173,7 @@ See `ARCHITECTURE.md` for message flows and component details.
 
 ## Testing
 
-Run unit tests:
+Run unit + integration tests:
 
 ```bash
 npm run test

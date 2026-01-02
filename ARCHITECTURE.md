@@ -6,6 +6,7 @@ Roomtone is a single-room mesh call. Each browser connects to the signaling serv
 
 - Browser UI (React + TypeScript)
 - Signaling server (Node.js + Express + ws)
+- Optional Telegram bot (JWT invite issuer)
 
 ## Data Flow
 
@@ -23,6 +24,12 @@ Roomtone is a single-room mesh call. Each browser connects to the signaling serv
 ```
 
 Media flows directly between peers using host candidates only.
+
+## Optional Bot Flow
+
+The Telegram bot is a separate process that signs short-lived JWT invite links
+for allowlisted Telegram users. The browser loads the link, which provides the
+token to the server for authentication.
 
 ## Signaling Messages
 
