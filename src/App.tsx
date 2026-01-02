@@ -162,6 +162,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authToken) {
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("token")) {
+      return;
+    }
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
+  }, [authToken]);
+
+  useEffect(() => {
     if (!name && defaultName) {
       setName(defaultName);
     }

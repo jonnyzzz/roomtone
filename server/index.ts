@@ -8,6 +8,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { RoomState, Participant } from "./room";
 import {
   buildAuthCookie,
+  buildClearCookie,
   getTokenFromRequest,
   loadAuthConfig,
   verifyJwt
@@ -108,7 +109,18 @@ app.use((req, res, next) => {
     authConfig.clockSkewSeconds
   );
   if (!result.ok || !result.claims) {
-    res.status(401).send(result.error ?? "Invalid auth token.");
+    if (lookup.source === "cookie") {
+      const secureCookie = isSecureRequest(
+        req.headers,
+        (req.socket as { encrypted?: boolean }).encrypted,
+        trustProxy
+      );
+      res.setHeader(
+        "Set-Cookie",
+        buildClearCookie(authConfig.cookieName, secureCookie)
+      );
+    }
+    res.status(401).send("Invalid auth token.");
     return;
   }
 

@@ -22,6 +22,8 @@ export type TokenLookup = {
   source?: TokenSource;
 };
 
+const MIN_RSA_BITS = 2048;
+
 export function loadAuthConfig(env: NodeJS.ProcessEnv): AuthConfig {
   const enabled = env.AUTH_ENABLED === "true";
   const cookieName = env.AUTH_COOKIE_NAME?.trim() || "roomtone_auth";
@@ -42,9 +44,17 @@ export function loadAuthConfig(env: NodeJS.ProcessEnv): AuthConfig {
     keys.push(...extractPemBlocks(fileData));
   }
 
+  const validatedKeys = keys
+    .map((key) => normalizePublicKey(key))
+    .filter((key): key is string => Boolean(key));
+
+  if (enabled && keys.length > validatedKeys.length) {
+    throw new Error("One or more AUTH_PUBLIC_KEYS are invalid or too weak.");
+  }
+
   return {
     enabled,
-    publicKeys: keys,
+    publicKeys: validatedKeys,
     cookieName,
     clockSkewSeconds
   };
@@ -143,6 +153,20 @@ export function verifyJwt(
     return { ok: false, error: "Token expired." };
   }
 
+  if (
+    typeof payload.nbf === "number" &&
+    payload.nbf > nowSeconds + clockSkewSeconds
+  ) {
+    return { ok: false, error: "Token not active." };
+  }
+
+  if (
+    typeof payload.iat === "number" &&
+    payload.iat > nowSeconds + clockSkewSeconds
+  ) {
+    return { ok: false, error: "Token issued in the future." };
+  }
+
   const signature = base64UrlDecodeToBuffer(signatureSegment);
   const isValid = publicKeys.some((key) => {
     const verifier = crypto.createVerify("RSA-SHA256");
@@ -182,6 +206,13 @@ export function buildAuthCookie(
   return parts.join("; ");
 }
 
+export function buildClearCookie(
+  cookieName: string,
+  secure: boolean
+): string {
+  return buildAuthCookie(cookieName, "", 0, secure);
+}
+
 function base64UrlDecode(input: string): string {
   return base64UrlDecodeToBuffer(input).toString("utf8");
 }
@@ -191,4 +222,20 @@ function base64UrlDecodeToBuffer(input: string): Buffer {
   const pad = normalized.length % 4;
   const padded = pad ? normalized + "=".repeat(4 - pad) : normalized;
   return Buffer.from(padded, "base64");
+}
+
+function normalizePublicKey(pem: string): string | null {
+  try {
+    const key = crypto.createPublicKey(pem);
+    if (key.asymmetricKeyType !== "rsa") {
+      return null;
+    }
+    const modulusLength = key.asymmetricKeyDetails?.modulusLength;
+    if (modulusLength && modulusLength < MIN_RSA_BITS) {
+      return null;
+    }
+    return key.export({ type: "spki", format: "pem" }).toString();
+  } catch {
+    return null;
+  }
 }

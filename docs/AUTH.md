@@ -25,6 +25,7 @@ present.
 The server validates:
 - JWT format and RS256 signature
 - `exp` with optional clock skew
+- `nbf` and `iat` if present (must not be in the future)
 
 Other claims (issuer, audience, etc) are currently ignored.
 
@@ -48,6 +49,9 @@ openssl genrsa -out roomtone.key 4096
 openssl rsa -in roomtone.key -pubout -out roomtone.pub
 ```
 
+Roomtone rejects RSA public keys smaller than 2048 bits. Use 4096-bit keys in
+production.
+
 Then set:
 
 ```bash
@@ -59,8 +63,8 @@ export AUTH_ENABLED=true
 
 ```bash
 node <<'NODE'
-import crypto from "crypto";
-import fs from "fs";
+const crypto = require("crypto");
+const fs = require("fs");
 
 const privateKey = fs.readFileSync("roomtone.key", "utf8");
 const expiresInSeconds = 60 * 60;
@@ -93,4 +97,6 @@ https://your-host.example/?token=JWT_HERE
 ```
 
 The UI will prefill the name if the token contains a `name` claim. The same
-token is used for the WebSocket handshake.
+token is used for the WebSocket handshake. After the initial load, the client
+removes the `token` query parameter from the URL to reduce accidental leakage
+in browser history.
