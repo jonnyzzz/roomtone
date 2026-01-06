@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2026-01-06
+
+### Added
+- Configurable ICE server list and relay-only policy to improve external connectivity.
+- WebSocket entropy keepalive messages in both directions.
+
+### Changed
+- Landscape phone layout keeps the local tile in the grid so only video is visible.
+- Invite links and client URL cleanup strip `name` parameters.
+
+## [0.2.2] - 2026-01-06
+
+### Changed
+- Client logs are posted to `/logs` and server emits structured room events.
+- Client remembers the last display name via local storage.
+
+## [0.2.1] - 2026-01-06
+
+### Changed
+- Telegram invite tokens no longer embed display names; users enter names when joining.
+- Auth UI no longer pre-fills names from tokens.
+- Phone landscape layout hides call chrome so only video tiles remain.
+
 ## [0.2.0] - 2026-01-02
 
 ### Added

@@ -21,6 +21,8 @@ services:
       AUTH_PUBLIC_KEYS_FILE: ${AUTH_PUBLIC_KEYS_FILE:-}
       AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-roomtone_auth}
       AUTH_CLOCK_SKEW_SECONDS: ${AUTH_CLOCK_SKEW_SECONDS:-30}
+      ICE_SERVERS: ${ICE_SERVERS:-}
+      ICE_TRANSPORT_POLICY: ${ICE_TRANSPORT_POLICY:-}
     volumes:
       - ${STEVEDORE_DATA:-./.stevedore/data}:/var/lib/roomtone
       - ${STEVEDORE_LOGS:-./.stevedore/logs}:/var/log/roomtone

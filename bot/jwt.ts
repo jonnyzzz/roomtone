@@ -25,7 +25,6 @@ export function signJwt(payload: JwtPayload, privateKeyPem: string): string {
 }
 
 export function buildInvitePayload(
-  name: string,
   userId: number,
   issuer: string,
   ttlSeconds: number
@@ -37,7 +36,6 @@ export function buildInvitePayload(
     nbf: now,
     iss: issuer,
     sub: `telegram:${userId}`,
-    name,
     jti: crypto.randomUUID()
   };
 }

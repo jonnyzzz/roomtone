@@ -165,15 +165,14 @@ export class ConnectionManagerBot {
       return;
     }
 
-    const name = formatName(sender);
     const payload = buildInvitePayload(
-      name,
       sender.id,
       this.config.jwtIssuer,
       this.config.jwtTtlSeconds
     );
     const token = signJwt(payload, this.config.jwtPrivateKey);
     const inviteUrl = new URL(this.config.publicBaseUrl.toString());
+    inviteUrl.searchParams.delete("name");
     inviteUrl.searchParams.set("token", token);
 
     const minutes = Math.ceil(this.config.jwtTtlSeconds / 60);
@@ -291,6 +290,7 @@ export class ConnectionManagerBot {
       this.config.jwtPrivateKey
     );
     const inviteUrl = new URL(this.config.publicBaseUrl.toString());
+    inviteUrl.searchParams.delete("name");
     inviteUrl.searchParams.set("token", token);
     const message = buildJoinNotification(name, inviteUrl.toString());
     for (const chatId of this.config.notifyChats) {
@@ -344,14 +344,6 @@ function parseCommand(
   const command = commandPart.toLowerCase();
   const mention = mentionPart ? mentionPart.toLowerCase() : undefined;
   return { command, args: tokens.slice(1), mention };
-}
-
-function formatName(user: { first_name: string; last_name?: string; username?: string; id: number }): string {
-  const raw =
-    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
-    user.username ||
-    String(user.id);
-  return raw.replace(/\s+/g, " ").trim().slice(0, 40);
 }
 
 function isCommandForBot(

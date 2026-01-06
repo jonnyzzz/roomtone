@@ -116,6 +116,22 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
   );
   expect(authedAsset.status()).toBe(200);
 
+  const unauthLogRequest = await playwrightRequest.newContext({
+    baseURL: BASE_URL
+  });
+  const unauthLogs = await unauthLogRequest.post("/logs", {
+    data: { level: "info", event: "test_log" },
+    failOnStatusCode: false
+  });
+  expect(unauthLogs.status()).toBe(401);
+  await unauthLogRequest.dispose();
+
+  const authedLogs = await request.post("/logs", {
+    data: { level: "info", event: "test_log" },
+    headers: { authorization: `Bearer ${authToken}` }
+  });
+  expect(authedLogs.status()).toBe(204);
+
   const context = await browser.newContext({
     permissions: ["camera", "microphone"]
   });
@@ -124,7 +140,8 @@ test("auth protects HTTP and WebSocket access", async ({ browser, request }) => 
   await page.waitForFunction(
     () => !new URL(window.location.href).searchParams.has("token")
   );
-  await expect(page.getByTestId("join-name")).toHaveValue("Authed User");
+  await expect(page.getByTestId("join-name")).toHaveValue("");
+  await page.getByTestId("join-name").fill("Authed User");
   await page.getByTestId("join-button").click();
   await expect(page.getByTestId("participant-count")).toHaveText("1");
 

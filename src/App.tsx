@@ -13,10 +13,17 @@ type SignalPayload = {
 type NotificationState = NotificationPermission | "unsupported";
 
 type ServerMessage =
-  | { type: "welcome"; id: string; participants: Participant[] }
+  | {
+      type: "welcome";
+      id: string;
+      participants: Participant[];
+      iceServers?: RTCIceServer[];
+      iceTransportPolicy?: RTCIceTransportPolicy;
+    }
   | { type: "peer-joined"; peer: Participant }
   | { type: "peer-left"; peerId: string }
   | { type: "signal"; from: string; data: SignalPayload }
+  | { type: "entropy"; bytes?: number; data?: string }
   | { type: "error"; message: string };
 
 type Copy = {
@@ -217,31 +224,132 @@ function isRussianLocale(): boolean {
   return languages.some((lang) => lang?.toLowerCase().startsWith("ru"));
 }
 
-function decodeJwtName(token: string | null): string | null {
-  if (!token) {
-    return null;
-  }
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    return null;
-  }
-  try {
-    const payload = JSON.parse(atob(base64UrlToBase64(parts[1]))) as {
-      name?: string;
-    };
-    if (payload?.name && typeof payload.name === "string") {
-      return payload.name;
-    }
-  } catch {
-    return null;
-  }
-  return null;
+const ENTROPY_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const ENTROPY_MIN_CHARS = 128;
+const ENTROPY_MAX_CHARS = 1024;
+const ENTROPY_MIN_DELAY_MS = 1500;
+const ENTROPY_MAX_DELAY_MS = 3500;
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function base64UrlToBase64(input: string): string {
-  const padded = input.replace(/-/g, "+").replace(/_/g, "/");
-  const padLength = padded.length % 4 ? 4 - (padded.length % 4) : 0;
-  return padded + "=".repeat(padLength);
+function randomEntropyString(length: number): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) {
+    return Array.from({ length }, () =>
+      ENTROPY_ALPHABET[Math.floor(Math.random() * ENTROPY_ALPHABET.length)]
+    ).join("");
+  }
+  const bytes = new Uint8Array(length);
+  cryptoApi.getRandomValues(bytes);
+  let result = "";
+  for (const value of bytes) {
+    result += ENTROPY_ALPHABET[value % ENTROPY_ALPHABET.length];
+  }
+  return result;
+}
+
+type ClientLogLevel = "debug" | "info" | "warn" | "error";
+
+type ClientLogPayload = {
+  level: ClientLogLevel;
+  event: string;
+  message?: string;
+  details?: Record<string, unknown> | string;
+  sessionId: string;
+  url: string;
+  userAgent?: string;
+  timestamp: string;
+  joined: boolean;
+};
+
+const NAME_STORAGE_KEY = "roomtone_name";
+
+function createSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function readStoredName(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  try {
+    return localStorage.getItem(NAME_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStoredName(value: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    localStorage.setItem(NAME_STORAGE_KEY, value);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function sanitizeClientUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.searchParams.has("token")) {
+      parsed.searchParams.set("token", "redacted");
+    }
+    if (parsed.searchParams.has("name")) {
+      parsed.searchParams.set("name", "redacted");
+    }
+    return parsed.pathname + parsed.search;
+  } catch {
+    return rawUrl
+      .replace(/token=[^&]+/g, "token=redacted")
+      .replace(/name=[^&]+/g, "name=redacted");
+  }
+}
+
+function truncateText(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+  return value.slice(0, limit);
+}
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || String(error);
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function postClientLog(payload: ClientLogPayload): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const body = JSON.stringify(payload);
+  if (navigator.sendBeacon) {
+    const blob = new Blob([body], { type: "application/json" });
+    navigator.sendBeacon("/logs", blob);
+    return;
+  }
+  void fetch("/logs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    keepalive: true
+  });
 }
 
 function NotificationPrompt({
@@ -324,7 +432,8 @@ function VideoTile({
 
 export default function App() {
   const copy = useMemo(() => (isRussianLocale() ? RU_COPY : EN_COPY), []);
-  const [name, setName] = useState("");
+  const sessionId = useMemo(() => createSessionId(), []);
+  const [name, setName] = useState(() => readStoredName());
   const [joined, setJoined] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "connecting" | "connected" | "error"
@@ -339,11 +448,56 @@ export default function App() {
   const [cameraOff, setCameraOff] = useState(false);
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationState>("default");
+  const [isCompactLandscape, setIsCompactLandscape] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+    return window.matchMedia("(max-height: 520px) and (orientation: landscape)")
+      .matches;
+  });
+
+  const logClient = useCallback(
+    (
+      level: ClientLogLevel,
+      event: string,
+      message?: string,
+      details?: Record<string, unknown> | string
+    ) => {
+      const trimmedEvent = event.trim();
+      if (!trimmedEvent) {
+        return;
+      }
+      const url =
+        typeof window === "undefined"
+          ? ""
+          : sanitizeClientUrl(window.location.href);
+      const userAgent =
+        typeof navigator === "undefined"
+          ? undefined
+          : truncateText(navigator.userAgent, 200);
+      postClientLog({
+        level,
+        event: truncateText(trimmedEvent, 80),
+        message: message ? truncateText(message, 500) : undefined,
+        details,
+        sessionId,
+        url,
+        userAgent,
+        timestamp: new Date().toISOString(),
+        joined
+      });
+    },
+    [joined, sessionId]
+  );
 
   const wsRef = useRef<WebSocket | null>(null);
   const manualCloseRef = useRef(false);
   const myIdRef = useRef<string | null>(null);
   const iceServersRef = useRef<RTCIceServer[]>([]);
+  const iceTransportPolicyRef = useRef<RTCIceTransportPolicy | undefined>(
+    undefined
+  );
+  const entropyTimerRef = useRef<number | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
 
@@ -352,7 +506,6 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get("token"),
     []
   );
-  const defaultName = useMemo(() => decodeJwtName(authToken), [authToken]);
 
   useEffect(() => {
     if (!("Notification" in window)) {
@@ -363,22 +516,70 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!authToken) {
+    if (!window.matchMedia) {
       return;
     }
+    const media = window.matchMedia(
+      "(max-height: 520px) and (orientation: landscape)"
+    );
+    const handler = (event: MediaQueryListEvent) => {
+      setIsCompactLandscape(event.matches);
+    };
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", handler);
+    } else {
+      media.addListener(handler);
+    }
+    return () => {
+      if (typeof media.removeEventListener === "function") {
+        media.removeEventListener("change", handler);
+      } else {
+        media.removeListener(handler);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const url = new URL(window.location.href);
-    if (!url.searchParams.has("token")) {
+    const hadToken = url.searchParams.has("token");
+    const hadName = url.searchParams.has("name");
+    if (!hadToken && !hadName) {
       return;
     }
-    url.searchParams.delete("token");
+    if (hadToken) {
+      url.searchParams.delete("token");
+    }
+    if (hadName) {
+      url.searchParams.delete("name");
+    }
     window.history.replaceState({}, "", url.toString());
   }, [authToken]);
 
   useEffect(() => {
-    if (!name && defaultName) {
-      setName(defaultName);
+    const handleError = (event: ErrorEvent) => {
+      logClient("error", "window_error", event.message, {
+        filename: event.filename,
+        line: event.lineno,
+        column: event.colno
+      });
+    };
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      logClient("error", "unhandled_rejection", stringifyError(event.reason));
+    };
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, [logClient]);
+
+  useEffect(() => {
+    const trimmed = name.trim();
+    if (trimmed) {
+      writeStoredName(trimmed);
     }
-  }, [defaultName, name]);
+  }, [name]);
 
   const clearConnections = useCallback(() => {
     for (const pc of peerConnectionsRef.current.values()) {
@@ -396,15 +597,52 @@ export default function App() {
     setLocalStream(null);
   }, []);
 
+  const stopEntropyLoop = useCallback(() => {
+    if (entropyTimerRef.current === null) {
+      return;
+    }
+    window.clearTimeout(entropyTimerRef.current);
+    entropyTimerRef.current = null;
+  }, []);
+
+  const startEntropyLoop = useCallback(() => {
+    stopEntropyLoop();
+    const scheduleNext = () => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        entropyTimerRef.current = null;
+        return;
+      }
+      const size = randomInt(ENTROPY_MIN_CHARS, ENTROPY_MAX_CHARS);
+      ws.send(
+        JSON.stringify({
+          type: "entropy",
+          bytes: size,
+          data: randomEntropyString(size)
+        })
+      );
+      entropyTimerRef.current = window.setTimeout(
+        scheduleNext,
+        randomInt(ENTROPY_MIN_DELAY_MS, ENTROPY_MAX_DELAY_MS)
+      );
+    };
+    entropyTimerRef.current = window.setTimeout(
+      scheduleNext,
+      randomInt(ENTROPY_MIN_DELAY_MS, ENTROPY_MAX_DELAY_MS)
+    );
+  }, [stopEntropyLoop]);
+
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
+    stopEntropyLoop();
     wsRef.current?.close();
     wsRef.current = null;
     clearConnections();
     stopLocalStream();
     setJoined(false);
     setStatus("idle");
-  }, [clearConnections, stopLocalStream]);
+    logClient("info", "disconnect", "manual");
+  }, [clearConnections, logClient, stopEntropyLoop, stopLocalStream]);
 
   const sendSignal = useCallback((to: string, data: SignalPayload) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -469,7 +707,8 @@ export default function App() {
       }
 
       const pc = new RTCPeerConnection({
-        iceServers: iceServersRef.current
+        iceServers: iceServersRef.current,
+        iceTransportPolicy: iceTransportPolicyRef.current
       });
 
       const local = localStreamRef.current;
@@ -485,6 +724,14 @@ export default function App() {
         }
       };
 
+      pc.onicecandidateerror = (event) => {
+        logClient("warn", "ice_candidate_error", event.errorText || "ICE candidate error", {
+          peerId,
+          errorCode: event.errorCode,
+          url: event.url
+        });
+      };
+
       pc.ontrack = (event) => {
         const [stream] = event.streams;
         if (!stream) {
@@ -496,11 +743,19 @@ export default function App() {
         }));
       };
 
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        if (state === "failed" || state === "disconnected") {
+          logClient("warn", "ice_connection_state", state, { peerId });
+        }
+      };
+
       pc.onconnectionstatechange = () => {
         if (
           pc.connectionState === "failed" ||
           pc.connectionState === "closed"
         ) {
+          logClient("warn", "rtc_connection_state", pc.connectionState, { peerId });
           peerConnectionsRef.current.delete(peerId);
           setRemoteStreams((prev) => {
             const next = { ...prev };
@@ -513,7 +768,7 @@ export default function App() {
       peerConnectionsRef.current.set(peerId, pc);
       return pc;
     },
-    [sendSignal]
+    [logClient, sendSignal]
   );
 
   const handleSignal = useCallback(
@@ -540,11 +795,12 @@ export default function App() {
             // Ignore candidates from already closed peers.
           }
         }
-      } catch {
+      } catch (err) {
+        logClient("error", "signal_error", stringifyError(err), { peerId: from });
         setError(copy.errors.signaling);
       }
     },
-    [copy, ensurePeerConnection, sendSignal, setError]
+    [copy, ensurePeerConnection, logClient, sendSignal, setError]
   );
 
   const handlePeerJoined = useCallback(
@@ -558,11 +814,14 @@ export default function App() {
         if (pc.localDescription) {
           sendSignal(peer.id, { description: pc.localDescription });
         }
-      } catch {
+      } catch (err) {
+        logClient("error", "peer_connect_error", stringifyError(err), {
+          peerId: peer.id
+        });
         setError(copy.errors.connectPeer);
       }
     },
-    [copy, ensurePeerConnection, notifyPeerJoined, sendSignal, setError]
+    [copy, ensurePeerConnection, logClient, notifyPeerJoined, sendSignal, setError]
   );
 
   const handlePeerLeft = useCallback((peerId: string) => {
@@ -593,6 +852,7 @@ export default function App() {
     const trimmed = name.trim();
     if (!trimmed) {
       setError(copy.errors.enterName);
+      logClient("warn", "join_validation", "name_required");
       return;
     }
 
@@ -601,6 +861,7 @@ export default function App() {
       !isLocalhost(window.location.hostname)
     ) {
       setError(copy.errors.httpsRequired);
+      logClient("warn", "join_validation", "https_required");
       return;
     }
 
@@ -612,8 +873,10 @@ export default function App() {
     setStatus("connecting");
     setMicMuted(false);
     setCameraOff(false);
+    logClient("info", "join_attempt", undefined, { nameLength: trimmed.length });
 
     try {
+      logClient("info", "media_request");
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: {
@@ -625,17 +888,23 @@ export default function App() {
 
       localStreamRef.current = stream;
       setLocalStream(stream);
+      logClient("info", "media_ready", undefined, {
+        audioTracks: stream.getAudioTracks().length,
+        videoTracks: stream.getVideoTracks().length
+      });
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        logClient("info", "ws_open");
         ws.send(
           JSON.stringify({
             type: "join",
             name: trimmed
           })
         );
+        startEntropyLoop();
       };
 
       ws.onmessage = (event) => {
@@ -643,14 +912,25 @@ export default function App() {
         try {
           message = JSON.parse(event.data) as ServerMessage;
         } catch {
+          logClient("warn", "ws_message_invalid", "invalid_json");
           setError(copy.errors.badMessage);
           return;
         }
         if (message.type === "welcome") {
           myIdRef.current = message.id;
+          iceServersRef.current = message.iceServers ?? [];
+          iceTransportPolicyRef.current =
+            message.iceTransportPolicy ?? "all";
           setParticipants(message.participants);
           setJoined(true);
           setStatus("connected");
+          logClient("info", "ice_config", undefined, {
+            servers: iceServersRef.current.length,
+            policy: iceTransportPolicyRef.current ?? "all"
+          });
+          logClient("info", "joined_room", undefined, {
+            participants: message.participants.length + 1
+          });
           return;
         }
 
@@ -670,11 +950,17 @@ export default function App() {
         }
 
         if (message.type === "error") {
+          logClient("warn", "server_error", message.message);
           setError(message.message);
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        stopEntropyLoop();
+        logClient("warn", "ws_close", undefined, {
+          code: event.code,
+          reason: event.reason
+        });
         if (manualCloseRef.current) {
           manualCloseRef.current = false;
           return;
@@ -688,20 +974,28 @@ export default function App() {
       };
 
       ws.onerror = () => {
+        stopEntropyLoop();
+        logClient("error", "ws_error");
         setStatus("error");
         setError(copy.errors.signaling);
       };
     } catch (err) {
+      logClient("error", "start_failed", stringifyError(err));
       setStatus("error");
       setError(copy.errors.startFailed);
     }
   }, [
+    clearConnections,
     copy,
     handlePeerJoined,
     handlePeerLeft,
     handleSignal,
+    logClient,
     name,
+    startEntropyLoop,
     status,
+    stopEntropyLoop,
+    stopLocalStream,
     wsUrl
   ]);
 
@@ -739,7 +1033,7 @@ export default function App() {
       connectingLabel={copy.tiles.connecting}
     />
   ));
-  const showLocalInGrid = participants.length === 0;
+  const showLocalInGrid = participants.length === 0 || isCompactLandscape;
   const localTile = (
     <VideoTile
       stream={localStream ?? undefined}
@@ -753,7 +1047,7 @@ export default function App() {
   );
 
   return (
-    <div className="app">
+    <div className={joined ? "app app--call" : "app"}>
       <div className="glow" />
       <header className="app__header">
         <div className="brand">
@@ -846,7 +1140,9 @@ export default function App() {
           />
           <div className="call__stage">
             <div
-              className={`video-grid ${showLocalInGrid ? "video-grid--solo" : ""}`}
+              className={`video-grid ${
+                participants.length === 0 ? "video-grid--solo" : ""
+              }`}
             >
               {showLocalInGrid ? localTile : null}
               {peerTiles}

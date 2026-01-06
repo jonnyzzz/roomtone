@@ -7,7 +7,7 @@ present.
 ## Summary
 
 - Tokens are JSON Web Tokens signed with RSA (RS256).
-- Only the `exp` claim is required; `name` is optional.
+- Only the `exp` claim is required; `name` is optional (the UI still requires manual entry).
 - Tokens can be provided as:
   - `?token=...` query parameter
   - `Authorization: Bearer ...` header
@@ -22,7 +22,7 @@ present.
 | Claim | Type | Required | Purpose |
 | --- | --- | --- | --- |
 | `exp` | number (unix seconds) | yes | Expiration time |
-| `name` | string | no | Default display name prefilled in the UI |
+| `name` | string | no | Optional display name (UI does not prefill) |
 
 The server validates:
 - JWT format and RS256 signature
@@ -70,8 +70,7 @@ const fs = require("fs");
 const privateKey = fs.readFileSync("roomtone.key", "utf8");
 const expiresInSeconds = 60 * 60;
 const payload = {
-  exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
-  name: "Ada Lovelace"
+  exp: Math.floor(Date.now() / 1000) + expiresInSeconds
 };
 const header = { alg: "RS256", typ: "JWT" };
 
@@ -97,7 +96,6 @@ Use it as a presigned URL:
 https://your-host.example/?token=JWT_HERE
 ```
 
-The UI will prefill the name if the token contains a `name` claim. The same
-token is used for the WebSocket handshake. After the initial load, the client
-removes the `token` query parameter from the URL to reduce accidental leakage
-in browser history.
+The same token is used for the WebSocket handshake. After the initial load, the
+client removes the `token` query parameter from the URL to reduce accidental
+leakage in browser history.

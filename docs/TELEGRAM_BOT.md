@@ -60,10 +60,10 @@ If Stevedore DynDNS exposes the domain in a shared file, you can point
 ## Usage
 
 Send `/invite` in a DM or a group chat where the bot is present. The bot replies
-in the same chat with a unique invite link signed for your name.
+in the same chat with a unique invite link signed for your Telegram user ID.
 
-Tokens include your display name and expire after the configured TTL (default
-5 minutes).
+Tokens include your Telegram user ID and expire after the configured TTL
+(default 5 minutes). Participants still enter their display name when joining.
 
 The bot deletes invite messages after the TTL expires. In group chats, ensure
 the bot has permission to delete messages (admin or delete rights) so cleanup

@@ -6,6 +6,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { RoomState, Participant } from "./room";
+import { parseIceServers, parseIceTransportPolicy } from "./ice";
 import {
   buildAuthCookie,
   buildClearCookie,
@@ -27,6 +28,11 @@ const maxPayloadBytes =
   Number.isFinite(maxPayloadRaw) && maxPayloadRaw > 0
     ? maxPayloadRaw
     : 1048576;
+const iceServers = parseIceServers(process.env.ICE_SERVERS);
+const iceTransportPolicy = parseIceTransportPolicy(
+  process.env.ICE_TRANSPORT_POLICY
+);
+const clientLogBodyLimit = "32kb";
 const app = express();
 app.set("trust proxy", trustProxy);
 const authConfig = loadAuthConfig(process.env);
@@ -82,9 +88,74 @@ function sanitizeUrl(rawUrl: string | undefined): string {
     if (parsed.searchParams.has("token")) {
       parsed.searchParams.set("token", "redacted");
     }
+    if (parsed.searchParams.has("name")) {
+      parsed.searchParams.set("name", "redacted");
+    }
     return parsed.pathname + parsed.search;
   } catch {
-    return rawUrl.replace(/token=[^&]+/g, "token=redacted");
+    return rawUrl
+      .replace(/token=[^&]+/g, "token=redacted")
+      .replace(/name=[^&]+/g, "name=redacted");
+  }
+}
+
+type ClientLogPayload = {
+  level?: string;
+  event?: string;
+  message?: string;
+  details?: unknown;
+  sessionId?: string;
+  url?: string;
+  userAgent?: string;
+  timestamp?: string;
+  joined?: boolean;
+};
+
+function normalizeLogLevel(value: unknown): string {
+  if (typeof value !== "string") {
+    return "info";
+  }
+  const normalized = value.toLowerCase();
+  if (
+    normalized === "debug" ||
+    normalized === "info" ||
+    normalized === "warn" ||
+    normalized === "error"
+  ) {
+    return normalized;
+  }
+  return "info";
+}
+
+function truncate(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+  return value.slice(0, limit);
+}
+
+function normalizeLogText(value: unknown, limit: number): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return truncate(trimmed, limit);
+}
+
+function normalizeLogDetails(value: unknown): string | undefined {
+  if (value === null || typeof value === "undefined") {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    return truncate(value, 2000);
+  }
+  try {
+    return truncate(JSON.stringify(value), 2000);
+  } catch {
+    return undefined;
   }
 }
 
@@ -246,6 +317,52 @@ app.get("/participants", (_req, res) => {
   res.json(room.list());
 });
 
+app.post(
+  "/logs",
+  express.text({ type: "*/*", limit: clientLogBodyLimit }),
+  (req, res) => {
+    let payload: ClientLogPayload | null = null;
+    if (typeof req.body === "string" && req.body.trim().length > 0) {
+      try {
+        payload = JSON.parse(req.body) as ClientLogPayload;
+      } catch {
+        res.status(400).send("Invalid log payload.");
+        return;
+      }
+    } else if (req.body && typeof req.body === "object") {
+      payload = req.body as ClientLogPayload;
+    }
+
+    if (!payload || typeof payload !== "object") {
+      res.status(400).send("Invalid log payload.");
+      return;
+    }
+
+    const event = normalizeLogText(payload.event, 80);
+    if (!event) {
+      res.status(400).send("Log event is required.");
+      return;
+    }
+
+    const entry = {
+      source: "client",
+      level: normalizeLogLevel(payload.level),
+      event,
+      message: normalizeLogText(payload.message, 500),
+      details: normalizeLogDetails(payload.details),
+      sessionId: normalizeLogText(payload.sessionId, 120),
+      url: normalizeLogText(sanitizeUrl(payload.url), 200),
+      userAgent: normalizeLogText(payload.userAgent, 200),
+      timestamp: normalizeLogText(payload.timestamp, 40),
+      joined: typeof payload.joined === "boolean" ? payload.joined : undefined,
+      receivedAt: new Date().toISOString()
+    };
+
+    console.log(JSON.stringify(entry));
+    res.status(204).send();
+  }
+);
+
 app.get("/ws", (req, res) => {
   logMissingWsUpgrade(req);
   res
@@ -278,11 +395,50 @@ const wss = new WebSocketServer({
 });
 const clientsById = new Map<string, WebSocket>();
 const clientsBySocket = new Map<WebSocket, Participant>();
+const entropyTimers = new Map<WebSocket, NodeJS.Timeout>();
+const entropyMinBytes = 128;
+const entropyMaxBytes = 1024;
+const entropyMinDelayMs = 1500;
+const entropyMaxDelayMs = 3500;
 
 function send(ws: WebSocket, payload: unknown) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   }
+}
+
+function randomIntInclusive(min: number, max: number): number {
+  return crypto.randomInt(min, max + 1);
+}
+
+function scheduleEntropy(ws: WebSocket): void {
+  const delay = randomIntInclusive(entropyMinDelayMs, entropyMaxDelayMs);
+  const timer = setTimeout(() => {
+    entropyTimers.delete(ws);
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    const size = randomIntInclusive(entropyMinBytes, entropyMaxBytes);
+    send(ws, {
+      type: "entropy",
+      bytes: size,
+      data: crypto.randomBytes(size).toString("base64")
+    });
+    scheduleEntropy(ws);
+  }, delay);
+  if (typeof timer.unref === "function") {
+    timer.unref();
+  }
+  entropyTimers.set(ws, timer);
+}
+
+function stopEntropy(ws: WebSocket): void {
+  const timer = entropyTimers.get(ws);
+  if (!timer) {
+    return;
+  }
+  clearTimeout(timer);
+  entropyTimers.delete(ws);
 }
 
 function broadcast(payload: unknown, exceptId?: string) {
@@ -294,6 +450,18 @@ function broadcast(payload: unknown, exceptId?: string) {
   }
 }
 
+function logRoomEvent(event: string, details: Record<string, unknown>): void {
+  console.log(
+    JSON.stringify({
+      source: "room",
+      event,
+      participants: room.count(),
+      at: new Date().toISOString(),
+      ...details
+    })
+  );
+}
+
 function handleLeave(ws: WebSocket) {
   const participant = clientsBySocket.get(ws);
   if (!participant) {
@@ -302,6 +470,7 @@ function handleLeave(ws: WebSocket) {
   clientsBySocket.delete(ws);
   clientsById.delete(participant.id);
   room.remove(participant.id);
+  logRoomEvent("left", { id: participant.id });
   broadcast({ type: "peer-left", peerId: participant.id });
 }
 
@@ -343,6 +512,9 @@ wss.on("connection", (ws, req) => {
     }
   }
 
+  logRoomEvent("ws_connected", {});
+  scheduleEntropy(ws);
+
   ws.on("message", (raw) => {
     let message: any;
     try {
@@ -373,12 +545,19 @@ wss.on("connection", (ws, req) => {
       const participant = room.add(id, name);
       clientsById.set(id, ws);
       clientsBySocket.set(ws, participant);
+      logRoomEvent("joined", { id });
 
       const participants = room
         .list()
         .filter((peer) => peer.id !== id);
 
-      send(ws, { type: "welcome", id, participants });
+      send(ws, {
+        type: "welcome",
+        id,
+        participants,
+        iceServers,
+        iceTransportPolicy
+      });
       broadcast({ type: "peer-joined", peer: participant }, id);
       return;
     }
@@ -406,10 +585,21 @@ wss.on("connection", (ws, req) => {
     }
   });
 
-  ws.on("close", () => handleLeave(ws));
-  ws.on("error", () => handleLeave(ws));
+  const cleanupSocket = () => {
+    const joined = clientsBySocket.has(ws);
+    stopEntropy(ws);
+    if (!joined) {
+      logRoomEvent("ws_disconnected", { joined: false });
+    }
+    handleLeave(ws);
+  };
+  ws.on("close", cleanupSocket);
+  ws.on("error", cleanupSocket);
 });
 
 server.listen(port, () => {
+  console.log(
+    `[rtc] ICE servers configured: ${iceServers.length} (policy=${iceTransportPolicy})`
+  );
   console.log(`Roomtone server listening on :${port}`);
 });

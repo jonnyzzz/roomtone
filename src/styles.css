@@ -503,3 +503,55 @@ body::before {
     align-items: flex-start;
   }
 }
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .app--call {
+    padding: 0;
+    gap: 0;
+  }
+
+  .app--call .app__header,
+  .app--call .call__header,
+  .app--call .notify {
+    display: none;
+  }
+
+  .app--call .call {
+    gap: 0;
+  }
+
+  .app--call .call__stage {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .app--call .video-grid {
+    gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-auto-rows: minmax(120px, 1fr);
+  }
+
+  .app--call .tile {
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .app--call .tile__label,
+  .app--call .tile__placeholder {
+    display: none;
+  }
+
+  .app--call .local-preview {
+    right: 8px;
+    bottom: 8px;
+    width: min(34vw, 180px);
+  }
+
+  .app--call .local-preview .tile {
+    border-radius: 0;
+  }
+}

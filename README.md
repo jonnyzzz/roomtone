@@ -194,9 +194,12 @@ Roomtone requires HTTPS for non-localhost traffic. Run it behind an HTTPS proxy 
 
 Signaling depends on WebSocket upgrades. Ensure your edge proxy forwards `Connection: Upgrade` and `Upgrade: websocket`, and that Cloudflare WebSockets are enabled. If `/ws` responds with `426 Upgrade Required`, the proxy is not forwarding upgrade headers.
 
-## No STUN/TURN
+## ICE Servers (STUN/TURN)
 
-This build uses host ICE candidates only. That keeps signaling on HTTPS/WSS but may reduce connectivity on strict NATs. If you need global NAT traversal later, reintroduce TURN support.
+Configure ICE servers with `ICE_SERVERS` (JSON array/object or comma/space-separated
+URLs). Set `ICE_TRANSPORT_POLICY=relay` to force TURN-only paths when you host
+your own relay. When unset, the client uses host ICE candidates only, which can
+fail on strict NATs.
 
 ## Architecture
 

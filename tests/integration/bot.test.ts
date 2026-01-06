@@ -207,7 +207,8 @@ describe("Telegram bot integration", () => {
     for (const invite of inviteMessages) {
       const result = verifyJwt(invite.token, [publicPem], now, 5);
       expect(result.ok).toBe(true);
-      expect(result.claims?.name).toBe("Eve");
+      expect(result.claims?.name).toBeUndefined();
+      expect(result.claims?.sub).toBe("telegram:7");
       expect(typeof result.claims?.jti).toBe("string");
     }
   });
