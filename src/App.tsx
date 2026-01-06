@@ -11,6 +11,8 @@ type SignalPayload = {
 };
 
 type NotificationState = NotificationPermission | "unsupported";
+type MediaTransport = "webrtc" | "ws";
+type MediaPeer = { id: string; mimeType: string };
 
 type ServerMessage =
   | {
@@ -19,10 +21,14 @@ type ServerMessage =
       participants: Participant[];
       iceServers?: RTCIceServer[];
       iceTransportPolicy?: RTCIceTransportPolicy;
+      mediaTransport?: MediaTransport;
+      mediaPeers?: MediaPeer[];
     }
   | { type: "peer-joined"; peer: Participant }
   | { type: "peer-left"; peerId: string }
   | { type: "signal"; from: string; data: SignalPayload }
+  | { type: "media-start"; peerId: string; mimeType: string }
+  | { type: "media-stop"; peerId: string }
   | { type: "entropy"; bytes?: number; data?: string }
   | { type: "error"; message: string };
 
@@ -57,6 +63,7 @@ type Copy = {
     connectionClosed: string;
     signaling: string;
     startFailed: string;
+    mediaUnsupported: string;
     notifyHttps: string;
     notifyBlocked: string;
     notifyEnableFailed: string;
@@ -113,6 +120,8 @@ const EN_COPY: Copy = {
     signaling: "Signaling error.",
     startFailed:
       "Unable to start the call. Check camera permissions and server access.",
+    mediaUnsupported:
+      "Media streaming is not supported in this browser. Try a Chromium-based browser.",
     notifyHttps: "Notifications require HTTPS.",
     notifyBlocked: "Notifications are blocked in your browser settings.",
     notifyEnableFailed: "Unable to enable notifications."
@@ -174,6 +183,8 @@ const RU_COPY: Copy = {
     signaling: "\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0438\u0433\u043d\u0430\u043b\u0438\u043d\u0433\u0430.",
     startFailed:
       "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0437\u0432\u043e\u043d\u043e\u043a. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f \u043a\u0430\u043c\u0435\u0440\u044b \u0438 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0441\u0435\u0440\u0432\u0435\u0440\u0443.",
+    mediaUnsupported:
+      "\u041f\u043e\u0442\u043e\u043a\u043e\u0432\u043e\u0435 \u0432\u0438\u0434\u0435\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044f \u044d\u0442\u0438\u043c \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u043e\u043c. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 Chromium.",
     notifyHttps: "\u0414\u043b\u044f \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0439 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f HTTPS.",
     notifyBlocked:
       "\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.",
@@ -230,6 +241,15 @@ const ENTROPY_MIN_CHARS = 128;
 const ENTROPY_MAX_CHARS = 1024;
 const ENTROPY_MIN_DELAY_MS = 1500;
 const ENTROPY_MAX_DELAY_MS = 3500;
+const MEDIA_CHUNK_MS = 250;
+const MEDIA_QUEUE_LIMIT = 24;
+const MEDIA_MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
+const MEDIA_MIME_CANDIDATES = [
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/webm",
+  "video/mp4;codecs=\"avc1.42E01E,mp4a.40.2\""
+];
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -249,6 +269,45 @@ function randomEntropyString(length: number): string {
     result += ENTROPY_ALPHABET[value % ENTROPY_ALPHABET.length];
   }
   return result;
+}
+
+const MEDIA_PACKET_VERSION = 1;
+const mediaTextDecoder = new TextDecoder();
+
+function pickMediaMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") {
+    return null;
+  }
+  for (const candidate of MEDIA_MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function parseMediaPacket(
+  data: ArrayBuffer
+): { peerId: string; payload: Uint8Array } | null {
+  const view = new Uint8Array(data);
+  if (view.length < 3) {
+    return null;
+  }
+  if (view[0] !== MEDIA_PACKET_VERSION) {
+    return null;
+  }
+  const idLength = view[1];
+  if (idLength <= 0 || view.length <= 2 + idLength) {
+    return null;
+  }
+  const peerId = mediaTextDecoder.decode(view.slice(2, 2 + idLength));
+  if (!peerId) {
+    return null;
+  }
+  return {
+    peerId,
+    payload: view.slice(2 + idLength)
+  };
 }
 
 type ClientLogLevel = "debug" | "info" | "warn" | "error";
@@ -384,6 +443,7 @@ function NotificationPrompt({
 
 function VideoTile({
   stream,
+  src,
   name,
   muted,
   isLocal,
@@ -392,6 +452,7 @@ function VideoTile({
   connectingLabel
 }: {
   stream?: MediaStream;
+  src?: string;
   name: string;
   muted: boolean;
   isLocal: boolean;
@@ -402,14 +463,26 @@ function VideoTile({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream ?? null;
+    const node = videoRef.current;
+    if (!node) {
+      return;
     }
-  }, [stream]);
+    if (stream) {
+      node.srcObject = stream;
+      node.removeAttribute("src");
+      return;
+    }
+    node.srcObject = null;
+    if (src) {
+      node.src = src;
+    } else {
+      node.removeAttribute("src");
+    }
+  }, [stream, src]);
 
   return (
     <div
-      className={`tile ${!stream ? "tile--empty" : ""}`}
+      className={`tile ${!stream && !src ? "tile--empty" : ""}`}
       style={{ animationDelay: `${index * 60}ms` }}
     >
       <video
@@ -423,7 +496,7 @@ function VideoTile({
         <span>{name}</span>
         {isLocal ? <em>{localLabel}</em> : null}
       </div>
-      {!stream ? (
+      {!stream && !src ? (
         <div className="tile__placeholder">{connectingLabel}</div>
       ) : null}
     </div>
@@ -443,9 +516,14 @@ export default function App() {
   const [remoteStreams, setRemoteStreams] = useState<
     Record<string, MediaStream>
   >({});
+  const [remoteMediaUrls, setRemoteMediaUrls] = useState<
+    Record<string, string>
+  >({});
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [mediaTransport, setMediaTransport] =
+    useState<MediaTransport>("ws");
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationState>("default");
   const [isCompactLandscape, setIsCompactLandscape] = useState(() => {
@@ -500,6 +578,21 @@ export default function App() {
   const entropyTimerRef = useRef<number | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteMediaRef = useRef(
+    new Map<
+      string,
+      {
+        url: string;
+        mediaSource: MediaSource;
+        sourceBuffer: SourceBuffer | null;
+        queue: Uint8Array[];
+        mimeType: string;
+      }
+    >()
+  );
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaMimeTypeRef = useRef<string | null>(null);
+  const mediaTransportRef = useRef<MediaTransport>("ws");
 
   const participantCount = joined ? participants.length + 1 : 0;
   const authToken = useMemo(
@@ -514,6 +607,10 @@ export default function App() {
     }
     setNotificationPermission(Notification.permission);
   }, []);
+
+  useEffect(() => {
+    mediaTransportRef.current = mediaTransport;
+  }, [mediaTransport]);
 
   useEffect(() => {
     if (!window.matchMedia) {
@@ -581,20 +678,170 @@ export default function App() {
     }
   }, [name]);
 
+  const removeRemoteMedia = useCallback(
+    (peerId: string) => {
+      const remote = remoteMediaRef.current.get(peerId);
+      if (!remote) {
+        return;
+      }
+      remoteMediaRef.current.delete(peerId);
+      try {
+        if (remote.mediaSource.readyState === "open") {
+          remote.mediaSource.endOfStream();
+        }
+      } catch {
+        // Ignore MSE shutdown errors.
+      }
+      URL.revokeObjectURL(remote.url);
+      setRemoteMediaUrls((prev) => {
+        const next = { ...prev };
+        delete next[peerId];
+        return next;
+      });
+    },
+    [setRemoteMediaUrls]
+  );
+
+  const clearRemoteMedia = useCallback(() => {
+    for (const peerId of remoteMediaRef.current.keys()) {
+      removeRemoteMedia(peerId);
+    }
+  }, [removeRemoteMedia]);
+
+  const ensureRemoteMedia = useCallback(
+    (peerId: string, mimeType: string) => {
+      if (typeof MediaSource === "undefined") {
+        setError(copy.errors.mediaUnsupported);
+        logClient("error", "media_unsupported", "media_source_missing");
+        return;
+      }
+      if (MediaSource.isTypeSupported && !MediaSource.isTypeSupported(mimeType)) {
+        logClient("warn", "media_unsupported_type", mimeType, { peerId });
+        return;
+      }
+      const existing = remoteMediaRef.current.get(peerId);
+      if (existing && existing.mimeType === mimeType) {
+        return;
+      }
+      if (existing) {
+        removeRemoteMedia(peerId);
+      }
+
+      const mediaSource = new MediaSource();
+      const url = URL.createObjectURL(mediaSource);
+      const remote = {
+        url,
+        mediaSource,
+        sourceBuffer: null as SourceBuffer | null,
+        queue: [] as Uint8Array[],
+        mimeType
+      };
+      remoteMediaRef.current.set(peerId, remote);
+      setRemoteMediaUrls((prev) => ({ ...prev, [peerId]: url }));
+
+      const flushQueue = () => {
+        if (!remote.sourceBuffer || remote.sourceBuffer.updating) {
+          return;
+        }
+        const next = remote.queue.shift();
+        if (!next) {
+          return;
+        }
+        try {
+          remote.sourceBuffer.appendBuffer(next);
+        } catch (err) {
+          logClient("warn", "media_append_failed", stringifyError(err), { peerId });
+          remote.queue.length = 0;
+        }
+      };
+
+      mediaSource.addEventListener("sourceopen", () => {
+        if (remote.sourceBuffer) {
+          return;
+        }
+        try {
+          const buffer = mediaSource.addSourceBuffer(mimeType);
+          buffer.mode = "sequence";
+          buffer.addEventListener("updateend", flushQueue);
+          remote.sourceBuffer = buffer;
+          flushQueue();
+        } catch (err) {
+          logClient("error", "media_source_failed", stringifyError(err), {
+            peerId,
+            mimeType
+          });
+        }
+      });
+    },
+    [copy.errors.mediaUnsupported, logClient, removeRemoteMedia, setError]
+  );
+
+  const appendRemoteChunk = useCallback(
+    (peerId: string, payload: Uint8Array) => {
+      const remote = remoteMediaRef.current.get(peerId);
+      if (!remote) {
+        return;
+      }
+      if (!remote.sourceBuffer || remote.sourceBuffer.updating) {
+        if (remote.queue.length >= MEDIA_QUEUE_LIMIT) {
+          remote.queue.shift();
+          logClient("warn", "media_queue_drop", "queue_overflow", { peerId });
+        }
+        remote.queue.push(payload);
+        return;
+      }
+      try {
+        remote.sourceBuffer.appendBuffer(payload);
+      } catch (err) {
+        logClient("warn", "media_append_failed", stringifyError(err), { peerId });
+      }
+    },
+    [logClient]
+  );
+
+  const handleMediaPacket = useCallback(
+    (data: ArrayBuffer) => {
+      const parsed = parseMediaPacket(data);
+      if (!parsed) {
+        logClient("warn", "media_packet_invalid");
+        return;
+      }
+      appendRemoteChunk(parsed.peerId, parsed.payload);
+    },
+    [appendRemoteChunk, logClient]
+  );
+
   const clearConnections = useCallback(() => {
     for (const pc of peerConnectionsRef.current.values()) {
       pc.close();
     }
     peerConnectionsRef.current.clear();
     setRemoteStreams({});
+    clearRemoteMedia();
     setParticipants([]);
     myIdRef.current = null;
-  }, []);
+  }, [clearRemoteMedia]);
 
   const stopLocalStream = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
     setLocalStream(null);
+  }, []);
+
+  const stopWsMedia = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    mediaRecorderRef.current = null;
+    mediaMimeTypeRef.current = null;
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+      } catch {
+        // Ignore recorder shutdown errors.
+      }
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "media-stop" }));
+    }
   }, []);
 
   const stopEntropyLoop = useCallback(() => {
@@ -632,9 +879,68 @@ export default function App() {
     );
   }, [stopEntropyLoop]);
 
+  const startWsMedia = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      return;
+    }
+    const stream = localStreamRef.current;
+    if (!stream) {
+      return;
+    }
+    const mimeType = pickMediaMimeType();
+    if (!mimeType || typeof MediaRecorder === "undefined") {
+      setError(copy.errors.mediaUnsupported);
+      logClient("error", "media_unsupported", "media_recorder_missing");
+      return;
+    }
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      mediaMimeTypeRef.current = mimeType;
+
+      recorder.ondataavailable = async (event) => {
+        if (!event.data || event.data.size === 0) {
+          return;
+        }
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          return;
+        }
+        if (ws.bufferedAmount > MEDIA_MAX_BUFFERED_BYTES) {
+          logClient("warn", "media_backpressure", "buffered", {
+            bufferedBytes: ws.bufferedAmount
+          });
+          return;
+        }
+        const payload = await event.data.arrayBuffer();
+        ws.send(payload);
+      };
+
+      recorder.onerror = (event) => {
+        logClient("error", "media_recorder_error", stringifyError(event));
+      };
+
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "media-start", mimeType }));
+      }
+      recorder.start(MEDIA_CHUNK_MS);
+      logClient("info", "media_recorder_start", undefined, {
+        mimeType,
+        chunkMs: MEDIA_CHUNK_MS
+      });
+    } catch (err) {
+      logClient("error", "media_recorder_error", stringifyError(err));
+      setError(copy.errors.mediaUnsupported);
+    }
+  }, [copy.errors.mediaUnsupported, logClient, setError]);
+
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
     stopEntropyLoop();
+    if (mediaTransportRef.current === "ws") {
+      stopWsMedia();
+    }
     wsRef.current?.close();
     wsRef.current = null;
     clearConnections();
@@ -642,10 +948,13 @@ export default function App() {
     setJoined(false);
     setStatus("idle");
     logClient("info", "disconnect", "manual");
-  }, [clearConnections, logClient, stopEntropyLoop, stopLocalStream]);
+  }, [clearConnections, logClient, stopEntropyLoop, stopLocalStream, stopWsMedia]);
 
   const sendSignal = useCallback((to: string, data: SignalPayload) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (mediaTransportRef.current !== "webrtc") {
       return;
     }
     wsRef.current.send(
@@ -803,11 +1112,22 @@ export default function App() {
     [copy, ensurePeerConnection, logClient, sendSignal, setError]
   );
 
-  const handlePeerJoined = useCallback(
+  const addParticipant = useCallback(
+    (peer: Participant) => {
+      setParticipants((prev) => {
+        if (prev.some((item) => item.id === peer.id)) {
+          return prev;
+        }
+        return [...prev, peer];
+      });
+      notifyPeerJoined(peer);
+    },
+    [notifyPeerJoined]
+  );
+
+  const connectPeerWebrtc = useCallback(
     async (peer: Participant) => {
       try {
-        setParticipants((prev) => [...prev, peer]);
-        notifyPeerJoined(peer);
         const pc = ensurePeerConnection(peer.id);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -821,23 +1141,27 @@ export default function App() {
         setError(copy.errors.connectPeer);
       }
     },
-    [copy, ensurePeerConnection, logClient, notifyPeerJoined, sendSignal, setError]
+    [copy, ensurePeerConnection, logClient, sendSignal, setError]
   );
 
-  const handlePeerLeft = useCallback((peerId: string) => {
-    setParticipants((prev) => prev.filter((peer) => peer.id !== peerId));
-    setRemoteStreams((prev) => {
-      const next = { ...prev };
-      delete next[peerId];
-      return next;
-    });
+  const removeParticipant = useCallback(
+    (peerId: string) => {
+      setParticipants((prev) => prev.filter((peer) => peer.id !== peerId));
+      setRemoteStreams((prev) => {
+        const next = { ...prev };
+        delete next[peerId];
+        return next;
+      });
+      removeRemoteMedia(peerId);
 
-    const pc = peerConnectionsRef.current.get(peerId);
-    if (pc) {
-      pc.close();
-      peerConnectionsRef.current.delete(peerId);
-    }
-  }, []);
+      const pc = peerConnectionsRef.current.get(peerId);
+      if (pc) {
+        pc.close();
+        peerConnectionsRef.current.delete(peerId);
+      }
+    },
+    [removeRemoteMedia]
+  );
 
   const wsUrl = useMemo(() => {
     const url = new URL("/ws", window.location.href);
@@ -907,7 +1231,16 @@ export default function App() {
         startEntropyLoop();
       };
 
+      ws.binaryType = "arraybuffer";
       ws.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          handleMediaPacket(event.data);
+          return;
+        }
+        if (typeof event.data !== "string") {
+          logClient("warn", "ws_message_invalid", "unsupported_payload");
+          return;
+        }
         let message: ServerMessage;
         try {
           message = JSON.parse(event.data) as ServerMessage;
@@ -917,6 +1250,9 @@ export default function App() {
           return;
         }
         if (message.type === "welcome") {
+          const transport = message.mediaTransport ?? "webrtc";
+          setMediaTransport(transport);
+          mediaTransportRef.current = transport;
           myIdRef.current = message.id;
           iceServersRef.current = message.iceServers ?? [];
           iceTransportPolicyRef.current =
@@ -924,28 +1260,54 @@ export default function App() {
           setParticipants(message.participants);
           setJoined(true);
           setStatus("connected");
-          logClient("info", "ice_config", undefined, {
-            servers: iceServersRef.current.length,
-            policy: iceTransportPolicyRef.current ?? "all"
-          });
+          logClient("info", "media_transport", transport);
+          if (transport === "webrtc") {
+            logClient("info", "ice_config", undefined, {
+              servers: iceServersRef.current.length,
+              policy: iceTransportPolicyRef.current ?? "all"
+            });
+          }
           logClient("info", "joined_room", undefined, {
             participants: message.participants.length + 1
           });
+          if (transport === "ws") {
+            message.mediaPeers?.forEach((peer) => {
+              ensureRemoteMedia(peer.id, peer.mimeType);
+            });
+            startWsMedia();
+          }
           return;
         }
 
         if (message.type === "peer-joined") {
-          void handlePeerJoined(message.peer);
+          addParticipant(message.peer);
+          if (mediaTransportRef.current === "webrtc") {
+            void connectPeerWebrtc(message.peer);
+          }
           return;
         }
 
         if (message.type === "peer-left") {
-          handlePeerLeft(message.peerId);
+          removeParticipant(message.peerId);
+          return;
+        }
+
+        if (message.type === "media-start") {
+          if (mediaTransportRef.current === "ws") {
+            ensureRemoteMedia(message.peerId, message.mimeType);
+          }
+          return;
+        }
+
+        if (message.type === "media-stop") {
+          removeRemoteMedia(message.peerId);
           return;
         }
 
         if (message.type === "signal") {
-          void handleSignal(message.from, message.data);
+          if (mediaTransportRef.current === "webrtc") {
+            void handleSignal(message.from, message.data);
+          }
           return;
         }
 
@@ -965,6 +1327,9 @@ export default function App() {
           manualCloseRef.current = false;
           return;
         }
+        if (mediaTransportRef.current === "ws") {
+          stopWsMedia();
+        }
         setStatus("error");
         setError(copy.errors.connectionClosed);
         wsRef.current = null;
@@ -975,6 +1340,9 @@ export default function App() {
 
       ws.onerror = () => {
         stopEntropyLoop();
+        if (mediaTransportRef.current === "ws") {
+          stopWsMedia();
+        }
         logClient("error", "ws_error");
         setStatus("error");
         setError(copy.errors.signaling);
@@ -985,17 +1353,23 @@ export default function App() {
       setError(copy.errors.startFailed);
     }
   }, [
+    addParticipant,
     clearConnections,
+    connectPeerWebrtc,
     copy,
-    handlePeerJoined,
-    handlePeerLeft,
+    ensureRemoteMedia,
+    handleMediaPacket,
     handleSignal,
     logClient,
     name,
+    removeParticipant,
+    removeRemoteMedia,
     startEntropyLoop,
+    startWsMedia,
     status,
     stopEntropyLoop,
     stopLocalStream,
+    stopWsMedia,
     wsUrl
   ]);
 
@@ -1024,7 +1398,8 @@ export default function App() {
   const peerTiles = participants.map((peer, index) => (
     <VideoTile
       key={peer.id}
-      stream={remoteStreams[peer.id]}
+      stream={mediaTransport === "webrtc" ? remoteStreams[peer.id] : undefined}
+      src={mediaTransport === "ws" ? remoteMediaUrls[peer.id] : undefined}
       name={peer.name}
       muted={false}
       isLocal={false}

@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { RoomState, Participant } from "./room";
 import { parseIceServers, parseIceTransportPolicy } from "./ice";
+import { buildMediaPacket } from "./media";
 import {
   buildAuthCookie,
   buildClearCookie,
@@ -28,6 +29,18 @@ const maxPayloadBytes =
   Number.isFinite(maxPayloadRaw) && maxPayloadRaw > 0
     ? maxPayloadRaw
     : 1048576;
+const mediaTransportRaw = (process.env.MEDIA_TRANSPORT ?? "ws").trim();
+const mediaTransport =
+  mediaTransportRaw.toLowerCase() === "webrtc" ? "webrtc" : "ws";
+if (
+  mediaTransportRaw &&
+  mediaTransportRaw.toLowerCase() !== "webrtc" &&
+  mediaTransportRaw.toLowerCase() !== "ws"
+) {
+  console.warn(
+    `[config] Unknown MEDIA_TRANSPORT="${mediaTransportRaw}", defaulting to "${mediaTransport}".`
+  );
+}
 const iceServers = parseIceServers(process.env.ICE_SERVERS);
 const iceTransportPolicy = parseIceTransportPolicy(
   process.env.ICE_TRANSPORT_POLICY
@@ -432,6 +445,7 @@ const wss = new WebSocketServer({
 });
 const clientsById = new Map<string, WebSocket>();
 const clientsBySocket = new Map<WebSocket, Participant>();
+const mediaById = new Map<string, string>();
 const entropyTimers = new Map<WebSocket, NodeJS.Timeout>();
 const entropyMinBytes = 128;
 const entropyMaxBytes = 1024;
@@ -441,6 +455,12 @@ const entropyMaxDelayMs = 3500;
 function send(ws: WebSocket, payload: unknown) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
+  }
+}
+
+function sendBinary(ws: WebSocket, payload: Buffer) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(payload);
   }
 }
 
@@ -478,6 +498,49 @@ function stopEntropy(ws: WebSocket): void {
   entropyTimers.delete(ws);
 }
 
+function normalizeMediaMimeType(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 120) {
+    return null;
+  }
+  if (!/^[a-z0-9]+\/[a-z0-9.+-]+/i.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+function toBuffer(raw: unknown): Buffer {
+  if (Buffer.isBuffer(raw)) {
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    return Buffer.concat(raw as Buffer[]);
+  }
+  if (raw instanceof ArrayBuffer) {
+    return Buffer.from(raw);
+  }
+  return Buffer.from(raw as any);
+}
+
+function broadcastMedia(senderId: string, payload: Buffer): void {
+  const packet = buildMediaPacket(senderId, payload);
+  if (packet.length > maxPayloadBytes) {
+    console.warn(
+      `[media] Dropping packet from ${senderId}: ${packet.length} bytes exceeds WS_MAX_PAYLOAD.`
+    );
+    return;
+  }
+  for (const [id, socket] of clientsById.entries()) {
+    if (id === senderId) {
+      continue;
+    }
+    sendBinary(socket, packet);
+  }
+}
+
 function broadcast(payload: unknown, exceptId?: string) {
   for (const [id, socket] of clientsById.entries()) {
     if (id === exceptId) {
@@ -499,6 +562,17 @@ function logRoomEvent(event: string, details: Record<string, unknown>): void {
   );
 }
 
+function listMediaPeers(exceptId?: string): { id: string; mimeType: string }[] {
+  const peers: { id: string; mimeType: string }[] = [];
+  for (const [peerId, mimeType] of mediaById.entries()) {
+    if (peerId === exceptId) {
+      continue;
+    }
+    peers.push({ id: peerId, mimeType });
+  }
+  return peers;
+}
+
 function handleLeave(ws: WebSocket) {
   const participant = clientsBySocket.get(ws);
   if (!participant) {
@@ -507,6 +581,9 @@ function handleLeave(ws: WebSocket) {
   clientsBySocket.delete(ws);
   clientsById.delete(participant.id);
   room.remove(participant.id);
+  if (mediaById.delete(participant.id)) {
+    broadcast({ type: "media-stop", peerId: participant.id });
+  }
   logRoomEvent("left", { id: participant.id });
   broadcast({ type: "peer-left", peerId: participant.id });
 }
@@ -552,7 +629,26 @@ wss.on("connection", (ws, req) => {
   logRoomEvent("ws_connected", {});
   scheduleEntropy(ws);
 
-  ws.on("message", (raw) => {
+  ws.on("message", (raw, isBinary) => {
+    if (isBinary) {
+      if (mediaTransport !== "ws") {
+        return;
+      }
+      const sender = clientsBySocket.get(ws);
+      if (!sender) {
+        return;
+      }
+      if (!mediaById.has(sender.id)) {
+        return;
+      }
+      const payload = toBuffer(raw);
+      if (payload.length === 0) {
+        return;
+      }
+      broadcastMedia(sender.id, payload);
+      return;
+    }
+
     let message: any;
     try {
       message = JSON.parse(raw.toString());
@@ -593,13 +689,52 @@ wss.on("connection", (ws, req) => {
         id,
         participants,
         iceServers,
-        iceTransportPolicy
+        iceTransportPolicy,
+        mediaTransport,
+        mediaPeers: listMediaPeers(id)
       });
       broadcast({ type: "peer-joined", peer: participant }, id);
       return;
     }
 
+    if (message?.type === "media-start") {
+      if (mediaTransport !== "ws") {
+        send(ws, { type: "error", message: "Media transport is disabled." });
+        return;
+      }
+      const sender = clientsBySocket.get(ws);
+      if (!sender) {
+        send(ws, { type: "error", message: "Join first." });
+        return;
+      }
+      const mimeType = normalizeMediaMimeType(message.mimeType);
+      if (!mimeType) {
+        send(ws, { type: "error", message: "Invalid media MIME type." });
+        return;
+      }
+      mediaById.set(sender.id, mimeType);
+      logRoomEvent("media_start", { id: sender.id, mimeType });
+      broadcast({ type: "media-start", peerId: sender.id, mimeType }, sender.id);
+      return;
+    }
+
+    if (message?.type === "media-stop") {
+      const sender = clientsBySocket.get(ws);
+      if (!sender) {
+        send(ws, { type: "error", message: "Join first." });
+        return;
+      }
+      if (mediaById.delete(sender.id)) {
+        logRoomEvent("media_stop", { id: sender.id });
+        broadcast({ type: "media-stop", peerId: sender.id }, sender.id);
+      }
+      return;
+    }
+
     if (message?.type === "signal") {
+      if (mediaTransport !== "webrtc") {
+        return;
+      }
       const sender = clientsBySocket.get(ws);
       if (!sender) {
         send(ws, { type: "error", message: "Join first." });
@@ -636,7 +771,7 @@ wss.on("connection", (ws, req) => {
 
 server.listen(port, () => {
   console.log(
-    `[rtc] ICE servers configured: ${iceServers.length} (policy=${iceTransportPolicy})`
+    `[media] transport=${mediaTransport} iceServers=${iceServers.length} policy=${iceTransportPolicy}`
   );
   console.log(`Roomtone server listening on :${port}`);
 });

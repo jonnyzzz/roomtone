@@ -2,6 +2,22 @@
 
 ## Issues
 
+### [x] Implement WebSocket media transport (no TURN)
+**Priority**: High
+**Reported**: 2026-01-06
+**GitHub**: https://github.com/jonnyzzz/roomtone/issues/5
+
+We cannot run TURN, so external calls must move to backend-only media over
+HTTPS/WSS. Implement MediaRecorder + WebSocket fanout and MediaSource playback.
+
+**Suggested fixes:**
+1. Server: accept `media-start`/`media-stop`, broadcast binary media packets with
+   peer ID headers.
+2. Client: send media chunks over WSS, render remote streams via MSE.
+3. Update docs/tests for the new transport and payload sizing.
+
+---
+
 ### [x] Investigate rp16g container logs for connection failures
 **Priority**: High
 **Reported**: 2026-01-06
@@ -23,9 +39,8 @@ configuration and add STUN/TURN support so remote peers can connect.
 1. Add ICE server configuration (env-driven) to the signaling flow.
 2. Update docs/tests and deploy.
 
-**Notes:** Production env currently has `ICE_SERVERS` empty and defaults to
-host-only candidates; configure TURN (prefer `turns:`) and set
-`ICE_TRANSPORT_POLICY=relay` via Stevedore params before re-testing.
+**Notes:** TURN is not available. This is effectively blocked unless we
+re-introduce a TURN relay; backend-only WSS media is the current path.
 
 ---
 
@@ -52,7 +67,7 @@ active without exceeding 100kb/s per direction.
 
 ---
 
-### [x] Ensure CI build stays green (run tests locally)
+### [ ] Ensure CI build stays green (run tests locally)
 **Priority**: High
 **Reported**: 2026-01-06
 **GitHub**: https://github.com/jonnyzzz/roomtone/issues/4
@@ -64,13 +79,14 @@ before pushing changes.
 1. Run `npm run test` and `npm run test:e2e`.
 2. Fix `pentest:auth` ZAP permissions/auth handling to avoid CI failures.
 
-**Status:** CI run 20759783461 green after cookie-based pentest updates.
+**Status:** Re-run the full suite after current changes and verify CI.
 
 ---
 
 ### [ ] Improve runtime error handling coverage
 **Priority**: Medium
 **Reported**: 2026-01-06
+**GitHub**: https://github.com/jonnyzzz/roomtone/issues/7
 
 Double-check that unexpected errors during script/runtime execution are captured,
 logged, and do not leave services in partial states.
@@ -78,6 +94,20 @@ logged, and do not leave services in partial states.
 **Suggested fixes:**
 1. Audit startup scripts for unhandled failures and add guard rails.
 2. Expand logging and exit handling for unexpected exceptions.
+
+---
+
+### [ ] Audit script runs for unexpected errors
+**Priority**: Medium
+**Reported**: 2026-01-06
+**GitHub**: https://github.com/jonnyzzz/roomtone/issues/6
+
+Double-check that scripts (pentest, deploy helpers, bot tooling) handle
+unexpected errors and exit cleanly without leaving partial state.
+
+**Suggested fixes:**
+1. Add defensive error handling in scripts and capture failures in logs.
+2. Ensure scripts return non-zero on failures for CI visibility.
 
 ---
 

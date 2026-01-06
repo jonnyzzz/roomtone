@@ -1,11 +1,11 @@
 # Roomtone
 
-Roomtone is a single-room audio and video calling app built on WebRTC and WebSocket signaling. It runs behind external HTTPS termination, works on mobile and desktop, and keeps signaling traffic on secure connections only.
+Roomtone is a single-room audio and video calling app with backend-only media over WebSocket by default and an optional WebRTC mode. It runs behind external HTTPS termination, works on mobile and desktop, and keeps traffic on secure connections only.
 
 ## Highlights
 
 - One shared room for all participants.
-- WebRTC audio and video with WebSocket signaling.
+- Backend-only audio and video over WebSocket (default), with optional WebRTC mode.
 - Clean, mobile-friendly UI in React + TypeScript.
 - Docker-first deployment with a single container.
 - Browser notifications when new participants join (opt-in prompt).
@@ -129,6 +129,7 @@ These environment variables control runtime behavior:
 | `TRUST_PROXY` | Trust `X-Forwarded-*` headers from a reverse proxy | `false` |
 | `MAX_PARTICIPANTS` | Maximum participants in the room | `10` |
 | `WS_MAX_PAYLOAD` | Max WebSocket message size in bytes | `1048576` |
+| `MEDIA_TRANSPORT` | Media transport mode (`ws` or `webrtc`) | `ws` |
 | `AUTH_ENABLED` | Require signed auth tokens for all requests | `false` |
 | `AUTH_PUBLIC_KEYS` | PEM public keys (supports multiple) | empty |
 | `AUTH_PUBLIC_KEYS_FILE` | Path to PEM public keys | empty |
@@ -192,9 +193,24 @@ Roomtone requires HTTPS for non-localhost traffic. Run it behind an HTTPS proxy 
 
 ## WebSocket Proxying
 
-Signaling depends on WebSocket upgrades. Ensure your edge proxy forwards `Connection: Upgrade` and `Upgrade: websocket`, and that Cloudflare WebSockets are enabled. If `/ws` responds with `426 Upgrade Required`, the proxy is not forwarding upgrade headers.
+Signaling and media transport depend on WebSocket upgrades. Ensure your edge
+proxy forwards `Connection: Upgrade` and `Upgrade: websocket`, and that
+Cloudflare WebSockets are enabled. If `/ws` responds with `426 Upgrade Required`,
+the proxy is not forwarding upgrade headers.
+
+## Media Transport (WebSocket)
+
+With `MEDIA_TRANSPORT=ws` (default), Roomtone streams media over the same
+WebSocket channel using MediaRecorder and MediaSource. This keeps all traffic
+backend-only over HTTPS/WSS, at the cost of higher latency and reduced browser
+support (Safari is limited).
+
+Adjust `WS_MAX_PAYLOAD` if media chunks exceed the default size, and keep an eye
+on proxy limits.
 
 ## ICE Servers (STUN/TURN)
+
+This applies only when `MEDIA_TRANSPORT=webrtc`.
 
 Configure ICE servers with `ICE_SERVERS` (JSON array/object or comma/space-separated
 URLs). Set `ICE_TRANSPORT_POLICY=relay` to force TURN-only paths when you host

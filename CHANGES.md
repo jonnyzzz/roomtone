@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-01-06
+
+### Added
+- WebSocket media transport using MediaRecorder + MediaSource (backend-only default).
+- Media packet framing and unit tests for WebSocket fan-out.
+- `MEDIA_TRANSPORT` config to choose `ws` or `webrtc`.
+
+### Changed
+- Default transport is backend WebSocket media; WebRTC signaling is optional.
+- Docs updated for WebSocket media and deployment/debugging notes.
+
 ## [0.2.5] - 2026-01-06
 
 ### Changed
