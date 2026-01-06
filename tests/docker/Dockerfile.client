@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/playwright:v1.49.0-jammy
 
 WORKDIR /tests
 COPY tests/docker/client-smoke.cjs /tests/client-smoke.cjs
+RUN npm init -y >/dev/null 2>&1 && npm install playwright@1.49.0
 
 ENV NODE_ENV=production
 
