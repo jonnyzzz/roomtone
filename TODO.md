@@ -67,7 +67,7 @@ active without exceeding 100kb/s per direction.
 
 ---
 
-### [ ] Ensure CI build stays green (run tests locally)
+### [x] Ensure CI build stays green (run tests locally)
 **Priority**: High
 **Reported**: 2026-01-06
 **GitHub**: https://github.com/jonnyzzz/roomtone/issues/4
@@ -79,7 +79,7 @@ before pushing changes.
 1. Run `npm run test` and `npm run test:e2e`.
 2. Fix `pentest:auth` ZAP permissions/auth handling to avoid CI failures.
 
-**Status:** Re-run the full suite after current changes and verify CI.
+**Status:** CI run 20762941298 green after WebSocket media transport updates.
 
 ---
 
