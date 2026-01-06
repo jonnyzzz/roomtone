@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2026-01-06
+
+### Added
+- Browser compatibility messaging with version expectations.
+- Playwright coverage for missing media API compatibility.
+
+### Changed
+- Russian UI copy stored in UTF-8 text for readability.
+
 ## [0.3.1] - 2026-01-06
 
 ### Added

@@ -120,3 +120,30 @@ test("desktop view shows local preview when peers join", async ({ browser }) => 
   await contextA.close();
   await contextB.close();
 });
+
+test("shows compatibility error when media APIs are missing", async ({
+  browser
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(window, "MediaRecorder", {
+      value: undefined,
+      configurable: true
+    });
+    Object.defineProperty(window, "MediaSource", {
+      value: undefined,
+      configurable: true
+    });
+    Object.defineProperty(window, "RTCPeerConnection", {
+      value: undefined,
+      configurable: true
+    });
+  });
+
+  const page = await context.newPage();
+  await page.goto("/");
+  await expect(page.locator(".join__error")).toContainText("Chrome or Edge 120+");
+  await expect(page.getByTestId("join-button")).toBeDisabled();
+
+  await context.close();
+});

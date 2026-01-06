@@ -133,6 +133,16 @@ assert no internet access from containers, and confirm audio/video startup.
 
 ---
 
+### [x] Add browser compatibility messaging + version expectations
+**Priority**: Medium
+**Reported**: 2026-01-06
+**GitHub**: https://github.com/jonnyzzz/roomtone/issues/8
+
+Document supported browser versions and surface a clear in-app error when
+required media APIs are missing.
+
+---
+
 ### [ ] Review auth/localhost checks for real security impact
 **Priority**: High
 **Reported**: 2026-01-06

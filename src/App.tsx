@@ -56,6 +56,8 @@ type Copy = {
     action: string;
   };
   errors: {
+    browserUnsupported: string;
+    browserWebrtcOnly: string;
     enterName: string;
     httpsRequired: string;
     badMessage: string;
@@ -64,6 +66,7 @@ type Copy = {
     signaling: string;
     startFailed: string;
     mediaUnsupported: string;
+    webrtcUnsupported: string;
     notifyHttps: string;
     notifyBlocked: string;
     notifyEnableFailed: string;
@@ -112,6 +115,10 @@ const EN_COPY: Copy = {
     action: "Enable notifications"
   },
   errors: {
+    browserUnsupported:
+      "This browser is not compatible. Use Chrome or Edge 120+, or Firefox 121+ with WebRTC mode. Safari is not supported for WebSocket media.",
+    browserWebrtcOnly:
+      "This browser can only join when WebRTC mode is enabled. Use Chrome or Edge 120+ for WebSocket media.",
     enterName: "Enter a name to join the room.",
     httpsRequired: "HTTPS is required to join the room.",
     badMessage: "Bad message from server.",
@@ -121,7 +128,9 @@ const EN_COPY: Copy = {
     startFailed:
       "Unable to start the call. Check camera permissions and server access.",
     mediaUnsupported:
-      "Media streaming is not supported in this browser. Try a Chromium-based browser.",
+      "WebSocket media is not supported in this browser. Use Chrome or Edge 120+, or Firefox 121+ with WebRTC mode.",
+    webrtcUnsupported:
+      "WebRTC is not supported in this browser. Use Chrome or Edge 120+.",
     notifyHttps: "Notifications require HTTPS.",
     notifyBlocked: "Notifications are blocked in your browser settings.",
     notifyEnableFailed: "Unable to enable notifications."
@@ -146,79 +155,78 @@ const EN_COPY: Copy = {
 };
 
 const RU_COPY: Copy = {
-  brandTagline: "\u041e\u0434\u043d\u0430 \u043a\u043e\u043c\u043d\u0430\u0442\u0430. \u0416\u0438\u0432\u044b\u0435 \u0433\u043e\u043b\u043e\u0441\u0430.",
+  brandTagline: "Одна комната. Живые голоса.",
   status: {
-    connected: "\u0412 \u044d\u0444\u0438\u0440\u0435",
-    connecting: "\u0421\u043e\u0435\u0434\u0438\u043d\u044f\u0435\u043c",
-    error: "\u041e\u0444\u043b\u0430\u0439\u043d",
-    idle: "\u041e\u0436\u0438\u0434\u0430\u043d\u0438\u0435"
+    connected: "В эфире",
+    connecting: "Соединяем",
+    error: "Офлайн",
+    idle: "Ожидание"
   },
   join: {
-    title: "\u0412\u043e\u0439\u0442\u0438 \u0432 \u043a\u043e\u043c\u043d\u0430\u0442\u0443",
+    title: "Войти в комнату",
     subtitle:
-      "\u0412\u0441\u0435 \u0432\u0441\u0442\u0440\u0435\u0447\u0430\u044e\u0442\u0441\u044f \u0432 \u043e\u0434\u043d\u043e\u0439 \u0432\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0439 \u043a\u043e\u043c\u043d\u0430\u0442\u0435. \u0412\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d \u0438 \u043a\u0430\u043c\u0435\u0440\u0443 \u2014 \u0438 \u0432\u044b \u0432 \u044d\u0444\u0438\u0440\u0435.",
-    nameLabel: "\u0412\u0430\u0448\u0435 \u0438\u043c\u044f",
-    namePlaceholder: "\u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, \u0422\u0430\u043d\u044f",
-    button: "\u041f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u0438\u0442\u044c\u0441\u044f",
-    joining: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0430\u0435\u043c\u0441\u044f...",
-    hint:
-      "\u0414\u043b\u044f \u043b\u0443\u0447\u0448\u0435\u0433\u043e \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0430 \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u043a\u0430\u043c\u0435\u0440\u0435 \u0438 \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443."
+      "Все встречаются в одной виртуальной комнате. Включите микрофон и камеру — и вы в эфире.",
+    nameLabel: "Ваше имя",
+    namePlaceholder: "например, Таня",
+    button: "Присоединиться",
+    joining: "Подключаемся...",
+    hint: "Для лучшего качества разрешите доступ к камере и микрофону."
   },
   notifications: {
-    title: "\u0411\u0443\u0434\u044c\u0442\u0435 \u0432 \u043a\u0443\u0440\u0441\u0435.",
-    blocked:
-      "\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.",
+    title: "Будьте в курсе.",
+    blocked: "Уведомления отключены в настройках браузера.",
     prompt:
-      "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f, \u0447\u0442\u043e\u0431\u044b \u0437\u043d\u0430\u0442\u044c, \u043a\u043e\u0433\u0434\u0430 \u043a\u0442\u043e-\u0442\u043e \u043f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u044f\u0435\u0442\u0441\u044f \u043a \u043a\u043e\u043c\u043d\u0430\u0442\u0435.",
-    action: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f"
+      "Включите уведомления, чтобы знать, когда кто-то присоединяется к комнате.",
+    action: "Включить уведомления"
   },
   errors: {
-    enterName:
-      "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043c\u044f, \u0447\u0442\u043e\u0431\u044b \u043f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u0438\u0442\u044c\u0441\u044f.",
-    httpsRequired: "\u0414\u043b\u044f \u0432\u0445\u043e\u0434\u0430 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f HTTPS.",
-    badMessage: "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u043e\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u0430.",
-    connectPeer:
-      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u043a \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u0443.",
-    connectionClosed: "\u0421\u043e\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u0435 \u0437\u0430\u043a\u0440\u044b\u0442\u043e.",
-    signaling: "\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0438\u0433\u043d\u0430\u043b\u0438\u043d\u0433\u0430.",
+    browserUnsupported:
+      "Этот браузер несовместим. Используйте Chrome или Edge 120+, либо Firefox 121+ в режиме WebRTC. Safari не поддерживает медиа через WebSocket.",
+    browserWebrtcOnly:
+      "Этот браузер работает только в режиме WebRTC. Для медиа через WebSocket нужен Chrome или Edge 120+.",
+    enterName: "Введите имя, чтобы присоединиться.",
+    httpsRequired: "Для входа требуется HTTPS.",
+    badMessage: "Некорректное сообщение от сервера.",
+    connectPeer: "Не удалось подключиться к участнику.",
+    connectionClosed: "Соединение закрыто.",
+    signaling: "Ошибка сигналинга.",
     startFailed:
-      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0437\u0432\u043e\u043d\u043e\u043a. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f \u043a\u0430\u043c\u0435\u0440\u044b \u0438 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0441\u0435\u0440\u0432\u0435\u0440\u0443.",
+      "Не удалось начать звонок. Проверьте разрешения камеры и доступ к серверу.",
     mediaUnsupported:
-      "\u041f\u043e\u0442\u043e\u043a\u043e\u0432\u043e\u0435 \u0432\u0438\u0434\u0435\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044f \u044d\u0442\u0438\u043c \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u043e\u043c. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 Chromium.",
-    notifyHttps: "\u0414\u043b\u044f \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0439 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f HTTPS.",
-    notifyBlocked:
-      "\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.",
-    notifyEnableFailed:
-      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f."
+      "Медиа через WebSocket не поддерживается в этом браузере. Используйте Chrome или Edge 120+, либо Firefox 121+ в режиме WebRTC.",
+    webrtcUnsupported:
+      "WebRTC не поддерживается в этом браузере. Используйте Chrome или Edge 120+.",
+    notifyHttps: "Для уведомлений требуется HTTPS.",
+    notifyBlocked: "Уведомления отключены в настройках браузера.",
+    notifyEnableFailed: "Не удалось включить уведомления."
   },
   call: {
-    roomTitle: "\u041e\u0431\u0449\u0430\u044f \u043a\u043e\u043c\u043d\u0430\u0442\u0430",
+    roomTitle: "Общая комната",
     participantsLabel: (count) => {
       const mod10 = count % 10;
       const mod100 = count % 100;
       if (mod10 === 1 && mod100 !== 11) {
-        return "\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a";
+        return "участник";
       }
       if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
-        return "\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u0430";
+        return "участника";
       }
-      return "\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u043e\u0432";
+      return "участников";
     }
   },
   controls: {
-    mute: "\u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0437\u0432\u0443\u043a",
-    unmute: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u0437\u0432\u0443\u043a",
-    cameraOn: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043a\u0430\u043c\u0435\u0440\u0443",
-    cameraOff: "\u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043a\u0430\u043c\u0435\u0440\u0443",
-    leave: "\u0412\u044b\u0439\u0442\u0438"
+    mute: "Выключить звук",
+    unmute: "Включить звук",
+    cameraOn: "Включить камеру",
+    cameraOff: "Выключить камеру",
+    leave: "Выйти"
   },
   tiles: {
-    connecting: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435...",
-    you: "\u0412\u044b"
+    connecting: "Подключение...",
+    you: "Вы"
   },
   notificationTitle: "Roomtone",
-  notificationBody: (name) =>
-    `${name} \u043f\u0440\u0438\u0441\u043e\u0435\u0434\u0438\u043d\u0438\u043b\u0441\u044f(\u0430\u0441\u044c) \u043a \u043a\u043e\u043c\u043d\u0430\u0442\u0435.`
+  notificationBody: (name) => `${name} присоединился(ась) к комнате.`
 };
 
 function isLocalhost(hostname: string) {
@@ -233,6 +241,33 @@ function isRussianLocale(): boolean {
     ? navigator.languages
     : [navigator.language];
   return languages.some((lang) => lang?.toLowerCase().startsWith("ru"));
+}
+
+type BrowserSupport = {
+  hasWebSocket: boolean;
+  hasMediaDevices: boolean;
+  hasMediaRecorder: boolean;
+  hasMediaSource: boolean;
+  hasWebrtc: boolean;
+};
+
+function detectBrowserSupport(): BrowserSupport {
+  if (typeof window === "undefined") {
+    return {
+      hasWebSocket: false,
+      hasMediaDevices: false,
+      hasMediaRecorder: false,
+      hasMediaSource: false,
+      hasWebrtc: false
+    };
+  }
+  return {
+    hasWebSocket: typeof WebSocket !== "undefined",
+    hasMediaDevices: Boolean(navigator.mediaDevices?.getUserMedia),
+    hasMediaRecorder: typeof MediaRecorder !== "undefined",
+    hasMediaSource: typeof MediaSource !== "undefined",
+    hasWebrtc: typeof RTCPeerConnection !== "undefined"
+  };
 }
 
 const ENTROPY_ALPHABET =
@@ -506,6 +541,7 @@ function VideoTile({
 export default function App() {
   const copy = useMemo(() => (isRussianLocale() ? RU_COPY : EN_COPY), []);
   const sessionId = useMemo(() => createSessionId(), []);
+  const browserSupport = useMemo(() => detectBrowserSupport(), []);
   const [name, setName] = useState(() => readStoredName());
   const [joined, setJoined] = useState(false);
   const [status, setStatus] = useState<
@@ -599,6 +635,33 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get("token"),
     []
   );
+  const isBaseSupported =
+    browserSupport.hasWebSocket && browserSupport.hasMediaDevices;
+  const isWsSupported =
+    isBaseSupported &&
+    browserSupport.hasMediaRecorder &&
+    browserSupport.hasMediaSource;
+  const isWebrtcSupported = isBaseSupported && browserSupport.hasWebrtc;
+  const isFullyUnsupported = !isWsSupported && !isWebrtcSupported;
+  const compatibilityMessage = useMemo(() => {
+    if (!isBaseSupported) {
+      return copy.errors.browserUnsupported;
+    }
+    if (!isWsSupported && isWebrtcSupported) {
+      return copy.errors.browserWebrtcOnly;
+    }
+    if (isFullyUnsupported) {
+      return copy.errors.browserUnsupported;
+    }
+    return null;
+  }, [
+    copy.errors.browserUnsupported,
+    copy.errors.browserWebrtcOnly,
+    isBaseSupported,
+    isFullyUnsupported,
+    isWebrtcSupported,
+    isWsSupported
+  ]);
 
   useEffect(() => {
     if (!("Notification" in window)) {
@@ -1180,6 +1243,17 @@ export default function App() {
       return;
     }
 
+    if (!isBaseSupported) {
+      setError(copy.errors.browserUnsupported);
+      logClient("warn", "join_validation", "browser_unsupported");
+      return;
+    }
+    if (isFullyUnsupported) {
+      setError(copy.errors.browserUnsupported);
+      logClient("warn", "join_validation", "browser_incompatible");
+      return;
+    }
+
     if (
       window.location.protocol !== "https:" &&
       !isLocalhost(window.location.hostname)
@@ -1271,10 +1345,30 @@ export default function App() {
             participants: message.participants.length + 1
           });
           if (transport === "ws") {
+            if (!isWsSupported) {
+              setStatus("error");
+              setError(copy.errors.mediaUnsupported);
+              logClient("error", "media_unsupported", "ws_required");
+              ws.close();
+              clearConnections();
+              stopLocalStream();
+              setJoined(false);
+              return;
+            }
             message.mediaPeers?.forEach((peer) => {
               ensureRemoteMedia(peer.id, peer.mimeType);
             });
             startWsMedia();
+          }
+          if (transport === "webrtc" && !isWebrtcSupported) {
+            setStatus("error");
+            setError(copy.errors.webrtcUnsupported);
+            logClient("error", "media_unsupported", "webrtc_required");
+            ws.close();
+            clearConnections();
+            stopLocalStream();
+            setJoined(false);
+            return;
           }
           return;
         }
@@ -1370,7 +1464,11 @@ export default function App() {
     stopEntropyLoop,
     stopLocalStream,
     stopWsMedia,
-    wsUrl
+    wsUrl,
+    isBaseSupported,
+    isFullyUnsupported,
+    isWebrtcSupported,
+    isWsSupported
   ]);
 
   const toggleMic = useCallback(() => {
@@ -1421,6 +1519,8 @@ export default function App() {
     />
   );
 
+  const displayError = compatibilityMessage ?? error;
+
   return (
     <div className={joined ? "app app--call" : "app"}>
       <div className="glow" />
@@ -1469,12 +1569,16 @@ export default function App() {
                 autoComplete="name"
               />
             </label>
-            {error ? <div className="join__error">{error}</div> : null}
+            {displayError ? (
+              <div className="join__error">{displayError}</div>
+            ) : null}
             <button
               data-testid="join-button"
               className="btn btn--primary"
               onClick={joinRoom}
-              disabled={status === "connecting"}
+              disabled={
+                status === "connecting" || !isBaseSupported || isFullyUnsupported
+              }
             >
               {status === "connecting" ? copy.join.joining : copy.join.button}
             </button>
@@ -1508,6 +1612,9 @@ export default function App() {
               </button>
             </div>
           </div>
+          {displayError ? (
+            <div className="call__error">{displayError}</div>
+          ) : null}
           <NotificationPrompt
             permission={notificationPermission}
             onRequest={requestNotifications}

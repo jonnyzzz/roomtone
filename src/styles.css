@@ -308,6 +308,15 @@ body::before {
   color: var(--text-muted);
 }
 
+.call__error {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(244, 87, 87, 0.15);
+  border: 1px solid rgba(244, 87, 87, 0.4);
+  color: #ffdede;
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;

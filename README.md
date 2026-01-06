@@ -191,6 +191,16 @@ Admins can manage allowlists with `/allow_user`, `/deny_user`, `/allow_chat`,
 
 Roomtone requires HTTPS for non-localhost traffic. Run it behind an HTTPS proxy or load balancer and set `TRUST_PROXY=true` so `X-Forwarded-Proto` can be trusted. Direct HTTP requests are rejected.
 
+## Browser Support
+
+WebSocket media requires modern browser APIs (MediaRecorder + MediaSource).
+Expectations:
+
+- Chrome 120+ (recommended)
+- Edge 120+ (recommended)
+- Firefox 121+ only when `MEDIA_TRANSPORT=webrtc`
+- Safari is not supported for WebSocket media
+
 ## WebSocket Proxying
 
 Signaling and media transport depend on WebSocket upgrades. Ensure your edge
