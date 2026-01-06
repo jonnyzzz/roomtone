@@ -67,6 +67,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - **WebSocket checks**: `/ws` returning `426` means upgrade headers are not forwarded; verify `stevedore.ingress.websocket=true` and Cloudflare WebSockets enabled.
 - **HTTPS/WSS only**: non-localhost HTTP is rejected; ensure `TRUST_PROXY=true` so `X-Forwarded-Proto` is honored.
 - **ICE/TURN**: if external peers stall at “connecting”, configure `ICE_SERVERS` and consider `ICE_TRANSPORT_POLICY=relay` for backend-only relay paths.
+- **TURN relay requirement**: outside-LAN calls require TURN; set `ICE_SERVERS` (prefer `turns:` URLs) and `ICE_TRANSPORT_POLICY=relay` via Stevedore params so media stays backend-relayed.
 - **Log hygiene**: redact query params (`token`, `name`) before sharing logs; avoid committing hostnames or secrets.
 
 ## Implementation Conventions

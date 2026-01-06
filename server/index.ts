@@ -37,6 +37,24 @@ const app = express();
 app.set("trust proxy", trustProxy);
 const authConfig = loadAuthConfig(process.env);
 const room = new RoomState();
+const securityHeaders = {
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "connect-src 'self' https: wss: http: ws:",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "script-src 'self'"
+  ].join("; "),
+  "Referrer-Policy": "no-referrer",
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "X-XSS-Protection": "0"
+} as const;
 
 if (authConfig.enabled && authConfig.publicKeys.length === 0) {
   throw new Error("AUTH_ENABLED is true but no AUTH_PUBLIC_KEYS were provided.");
@@ -223,6 +241,25 @@ app.use((req, res, next) => {
       `[http] ${req.method} ${cleanUrl} ${res.statusCode} ${duration}ms`
     );
   });
+  next();
+});
+
+app.use((req, res, next) => {
+  for (const [header, value] of Object.entries(securityHeaders)) {
+    res.setHeader(header, value);
+  }
+  if (
+    isSecureRequest(
+      req.headers,
+      (req.socket as { encrypted?: boolean }).encrypted,
+      trustProxy
+    )
+  ) {
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    );
+  }
   next();
 });
 

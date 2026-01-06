@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.4] - 2026-01-06
+
+### Added
+- Security headers (CSP, frame/content-type protections) plus HSTS on secure requests.
+
+### Changed
+- Auth pentest script now fails fast on startup issues and relaxes CI warnings while preserving reports.
+
 ## [0.2.3] - 2026-01-06
 
 ### Added

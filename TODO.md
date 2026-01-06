@@ -23,8 +23,9 @@ configuration and add STUN/TURN support so remote peers can connect.
 1. Add ICE server configuration (env-driven) to the signaling flow.
 2. Update docs/tests and deploy.
 
-**Notes:** ICE config and client wiring are in progress; still needs deployment
-with a backend relay and validation in production.
+**Notes:** Production env currently has `ICE_SERVERS` empty and defaults to
+host-only candidates; configure TURN (prefer `turns:`) and set
+`ICE_TRANSPORT_POLICY=relay` via Stevedore params before re-testing.
 
 ---
 
@@ -51,13 +52,14 @@ active without exceeding 100kb/s per direction.
 ### [ ] Ensure CI build stays green (run tests locally)
 **Priority**: High
 **Reported**: 2026-01-06
+**GitHub**: https://github.com/jonnyzzz/roomtone/issues/4
 
 Make sure GitHub Actions build is green by running the full local test suite
 before pushing changes.
 
 **Suggested fixes:**
 1. Run `npm run test` and `npm run test:e2e`.
-2. Address any failures before pushing.
+2. Fix `pentest:auth` ZAP permissions/auth handling to avoid CI failures.
 
 ---
 
