@@ -124,6 +124,15 @@ portrait and landscape orientation to validate the UI layout.
 
 ---
 
+### [x] Add offline Docker integration test (server + 2 clients)
+**Priority**: Medium
+**Reported**: 2026-01-06
+
+Run the server plus two Playwright clients inside an internal Docker network,
+assert no internet access from containers, and confirm audio/video startup.
+
+---
+
 ### [ ] Review auth/localhost checks for real security impact
 **Priority**: High
 **Reported**: 2026-01-06

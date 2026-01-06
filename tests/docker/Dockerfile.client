@@ -1,0 +1,8 @@
+FROM mcr.microsoft.com/playwright:v1.49.0-jammy
+
+WORKDIR /tests
+COPY tests/docker/client-smoke.cjs /tests/client-smoke.cjs
+
+ENV NODE_ENV=production
+
+ENTRYPOINT ["node", "/tests/client-smoke.cjs"]

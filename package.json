@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
+    "test:docker": "bash scripts/test-docker-clients.sh",
     "pentest:auth": "./scripts/pentest-auth.sh"
   },
   "dependencies": {

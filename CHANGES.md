@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-01-06
+
+### Added
+- Offline Docker integration test (server + two clients on an internal network).
+
 ## [0.3.0] - 2026-01-06
 
 ### Added

@@ -236,6 +236,13 @@ npx playwright install
 npm run test:e2e
 ```
 
+Run the offline Docker integration test (server + two client containers on an
+internal network, no internet access):
+
+```bash
+npm run test:docker
+```
+
 Run the OWASP ZAP auth-mode pentest harness:
 
 ```bash

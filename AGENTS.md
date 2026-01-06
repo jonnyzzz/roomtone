@@ -12,6 +12,7 @@ This repo is a single-room WebRTC calling app with a Node signaling server and a
 - Start bot: `npm run start:bot`
 - Unit tests: `npm run test`
 - E2E tests (Playwright): `npm run test:e2e`
+- Offline Docker integration test: `npm run test:docker`
 - Auth pentest (OWASP ZAP): `./scripts/pentest-auth.sh`
 - Docker: `docker compose up --build`
 
