@@ -38,6 +38,9 @@ Requirement states all call traffic must be backend-only and wrapped in
 HTTPS/WSS. Confirm whether TURN/TLS relay is acceptable, or whether a media
 relay/SFU is required, and document the supported transport policy.
 
+**Constraint:** No TURN server is available; evaluate SFU or custom media-over-WSS
+approach if backend-only traffic is mandatory.
+
 ---
 
 ### [x] Add WebSocket entropy keepalive messages
