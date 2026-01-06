@@ -49,7 +49,7 @@ active without exceeding 100kb/s per direction.
 
 ---
 
-### [ ] Ensure CI build stays green (run tests locally)
+### [x] Ensure CI build stays green (run tests locally)
 **Priority**: High
 **Reported**: 2026-01-06
 **GitHub**: https://github.com/jonnyzzz/roomtone/issues/4
@@ -60,6 +60,8 @@ before pushing changes.
 **Suggested fixes:**
 1. Run `npm run test` and `npm run test:e2e`.
 2. Fix `pentest:auth` ZAP permissions/auth handling to avoid CI failures.
+
+**Status:** CI run 20759783461 green after cookie-based pentest updates.
 
 ---
 
