@@ -7,7 +7,12 @@ CLIENT_IMAGE="roomtone-it-client:local"
 SERVER_NAME="roomtone-it-server-${NETWORK_NAME}"
 CLIENT_A_NAME="roomtone-it-client-a-${NETWORK_NAME}"
 CLIENT_B_NAME="roomtone-it-client-b-${NETWORK_NAME}"
-ROOMTONE_URL="http://${SERVER_NAME}:5670"
+# Client containers share the server's network namespace (see below), so
+# they reach the server on localhost. Chromium treats http://localhost as a
+# secure context and exposes navigator.mediaDevices there — unlike a
+# container-network hostname which would trigger the insecure-context gate
+# and keep App.tsx's join-button disabled.
+ROOMTONE_URL="http://localhost:5670"
 ROOMTONE_TIMEOUT_MS="${ROOMTONE_TIMEOUT_MS:-45000}"
 
 cleanup() {
@@ -55,14 +60,18 @@ echo "Verifying server has no internet access..."
 docker exec "${SERVER_NAME}" node -e "const ac=new AbortController();setTimeout(()=>ac.abort(),1500);fetch('https://example.com',{signal:ac.signal}).then(()=>{console.error('internet access');process.exit(1);}).catch(err=>{if(err&&err.message&&err.message.includes('internet access')){process.exit(1);}process.exit(0);});" >/dev/null 2>&1
 
 echo "Starting client containers..."
-docker run --name "${CLIENT_A_NAME}" --network "${NETWORK_NAME}" \
+# --network container:<server> shares the server's network namespace, so
+# clients see the server at localhost:5670 and inherit the server's
+# --internal network (no external internet access). This is required to
+# satisfy Chromium's secure-context check for navigator.mediaDevices.
+docker run --name "${CLIENT_A_NAME}" --network "container:${SERVER_NAME}" \
   -e ROOMTONE_URL="${ROOMTONE_URL}" \
   -e ROOMTONE_NAME="Client A" \
   -e ROOMTONE_TIMEOUT_MS="${ROOMTONE_TIMEOUT_MS}" \
   "${CLIENT_IMAGE}" &
 CLIENT_A_PID=$!
 
-docker run --name "${CLIENT_B_NAME}" --network "${NETWORK_NAME}" \
+docker run --name "${CLIENT_B_NAME}" --network "container:${SERVER_NAME}" \
   -e ROOMTONE_URL="${ROOMTONE_URL}" \
   -e ROOMTONE_NAME="Client B" \
   -e ROOMTONE_TIMEOUT_MS="${ROOMTONE_TIMEOUT_MS}" \
