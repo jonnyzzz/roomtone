@@ -50,6 +50,19 @@ async function run() {
   const page = await context.newPage();
 
   await page.goto(ROOMTONE_URL, { waitUntil: "domcontentloaded" });
+
+  // Diagnostic: log why the join-button would be disabled, so future CI
+  // failures aren't a mystery.
+  const support = await page.evaluate(() => ({
+    hasWebSocket: typeof WebSocket !== "undefined",
+    hasMediaDevices: Boolean(navigator.mediaDevices?.getUserMedia),
+    hasMediaRecorder: typeof MediaRecorder !== "undefined",
+    hasMediaSource: typeof MediaSource !== "undefined",
+    hasWebrtc: typeof RTCPeerConnection !== "undefined",
+    isSecureContext: window.isSecureContext
+  }));
+  console.log(`[smoke] browser support: ${JSON.stringify(support)}`);
+
   await page.getByTestId("join-name").fill(ROOMTONE_NAME);
   await page.getByTestId("join-button").click();
 
