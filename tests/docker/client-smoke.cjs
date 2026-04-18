@@ -27,11 +27,21 @@ async function assertNoInternetAccess() {
 async function run() {
   await assertNoInternetAccess();
 
+  // Recent Chromium (143+) gates navigator.mediaDevices on secure-context
+  // origins. In this harness the server runs on http://roomtone-it-server-*
+  // which is neither HTTPS nor localhost, so `navigator.mediaDevices?.getUserMedia`
+  // is undefined, detectBrowserSupport() reports hasMediaDevices=false,
+  // App.tsx keeps the join-button disabled, and Playwright times out waiting
+  // for it to become enabled. Tell Chromium to treat the target origin as
+  // secure so mediaDevices is available.
+  const secureOriginArg = `--unsafely-treat-insecure-origin-as-secure=${new URL(ROOMTONE_URL).origin}`;
+
   const browser = await chromium.launch({
     args: [
       "--use-fake-ui-for-media-stream",
       "--use-fake-device-for-media-stream",
-      "--autoplay-policy=no-user-gesture-required"
+      "--autoplay-policy=no-user-gesture-required",
+      secureOriginArg
     ]
   });
   const context = await browser.newContext({
