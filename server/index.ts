@@ -50,6 +50,14 @@ const app = express();
 app.set("trust proxy", trustProxy);
 const authConfig = loadAuthConfig(process.env);
 const room = new RoomState();
+// In test mode (ALLOW_INSECURE_HTTP=true) the Playwright docker smoke test
+// runs against this server and uses page.waitForFunction, whose polling
+// injection trips CSP's `script-src 'self'` with an "unsafe-eval" error.
+// Relax script-src for tests only; production CSP stays strict.
+const scriptSrc = allowInsecure
+  ? "script-src 'self' 'unsafe-eval'"
+  : "script-src 'self'";
+
 const securityHeaders = {
   "Content-Security-Policy": [
     "default-src 'self'",
@@ -61,7 +69,7 @@ const securityHeaders = {
     "media-src 'self' blob:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "script-src 'self'"
+    scriptSrc
   ].join("; "),
   "Referrer-Policy": "no-referrer",
   "X-Frame-Options": "DENY",
