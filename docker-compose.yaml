@@ -2,6 +2,8 @@ services:
   app:
     build: .
     image: roomtone:latest
+    # tini as PID 1 so orphaned subprocesses are reaped. Required by stevedore.
+    init: true
     labels:
       - "stevedore.ingress.enabled=true"
       - "stevedore.ingress.subdomain=krovatka"
@@ -36,6 +38,8 @@ services:
   bot:
     build: .
     image: roomtone:latest
+    # tini as PID 1 so orphaned subprocesses are reaped. Required by stevedore.
+    init: true
     profiles: ["bot"]
     command: ["node", "dist/bot/index.js"]
     environment:
