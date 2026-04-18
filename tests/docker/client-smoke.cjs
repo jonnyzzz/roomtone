@@ -28,24 +28,33 @@ async function run() {
   await assertNoInternetAccess();
 
   // Recent Chromium (143+) gates navigator.mediaDevices on secure-context
-  // origins. In this harness the server runs on http://roomtone-it-server-*
-  // which is neither HTTPS nor localhost, so `navigator.mediaDevices?.getUserMedia`
-  // is undefined, detectBrowserSupport() reports hasMediaDevices=false,
-  // App.tsx keeps the join-button disabled, and Playwright times out waiting
-  // for it to become enabled. Tell Chromium to treat the target origin as
-  // secure so mediaDevices is available.
-  const secureOriginArg = `--unsafely-treat-insecure-origin-as-secure=${new URL(ROOMTONE_URL).origin}`;
+  // origins. The harness serves over http://roomtone-it-server-* which
+  // isn't HTTPS or localhost, so by default `navigator.mediaDevices` is
+  // undefined, App.tsx's isBaseSupported is false, and the join-button
+  // stays disabled.
+  //
+  // Use launchPersistentContext with an explicit user-data-dir: a
+  // fresh profile is required for --unsafely-treat-insecure-origin-as-secure
+  // to populate the origin allowlist (the flag has no effect when merged
+  // with an existing profile). Also pass --disable-features for the
+  // StorageAccess API to avoid noise.
+  const os = require("os");
+  const path = require("path");
+  const fs = require("fs");
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "roomtone-chromium-"));
+  const secureOrigin = new URL(ROOMTONE_URL).origin;
 
-  const browser = await chromium.launch({
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    permissions: ["camera", "microphone"],
     args: [
       "--use-fake-ui-for-media-stream",
       "--use-fake-device-for-media-stream",
       "--autoplay-policy=no-user-gesture-required",
-      secureOriginArg
+      `--unsafely-treat-insecure-origin-as-secure=${secureOrigin}`,
+      // Without the matching enable-features the allowlist is ignored in
+      // newer Chromium. See https://crbug.com/1330037 for the dance.
+      "--enable-features=UnsafelyTreatInsecureOriginAsSecure"
     ]
-  });
-  const context = await browser.newContext({
-    permissions: ["camera", "microphone"]
   });
   const page = await context.newPage();
 
@@ -103,7 +112,7 @@ async function run() {
     return remoteVideo.readyState >= 2 || remoteVideo.currentTime > 0;
   }, { timeout: ROOMTONE_TIMEOUT_MS });
 
-  await browser.close();
+  await context.close();
 }
 
 run().catch((error) => {
